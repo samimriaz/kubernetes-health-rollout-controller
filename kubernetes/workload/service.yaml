@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-service
+  namespace: workload
+  labels:
+    app: inference-service
+
+spec:
+  # ClusterIP exposes the application only inside the Kubernetes cluster.
+  # We will use kubectl port-forward when accessing it from Windows.
+  type: ClusterIP
+
+  selector:
+    # Selects every pod with this label. Later, both stable and canary
+    # Deployments will use it and receive traffic through this Service.
+    app: inference-service
+
+  ports:
+    - name: http
+
+      # Other workloads and port-forwarding connect to the Service on port 8000.
+      port: 8000
+
+      # The Service forwards requests to port 8000 in the selected containers.
+      targetPort: http
+
+      protocol: TCP

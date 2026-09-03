@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-stable
+  namespace: workload
+  labels:
+    app: inference-service
+    track: stable
+
+spec:
+  # Start with one instance while validating the Kubernetes deployment.
+  replicas: 1
+
+  # The Deployment manages pods matching both labels.
+  selector:
+    matchLabels:
+      app: inference-service
+      track: stable
+
+  template:
+    metadata:
+      labels:
+        # The future shared Service will select this common label.
+        app: inference-service
+
+        # Prometheus and the controller use this to identify stable pods.
+        track: stable
+
+    spec:
+      containers:
+        - name: inference-service
+          image: inference-service:v0.1.0
+
+          # Use the image loaded into kind instead of downloading it.
+          imagePullPolicy: Never
+
+          env:
+            # main.py reads this using os.getenv("TRACK", "stable").
+            - name: TRACK
+              value: stable
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          resources:
+            # Requests are resources Kubernetes reserves for this container.
+            requests:
+              cpu: 200m
+              memory: 256Mi
+
+            # Limits are the maximum resources the container may consume.
+            limits:
+              cpu: "1"
+              memory: 512Mi
+
+          # Wait for FastAPI and MobileNet to load before other probes begin.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+
+          # Only ready pods receive traffic from a Service.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+
+          # Restart the container if the service repeatedly stops responding.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

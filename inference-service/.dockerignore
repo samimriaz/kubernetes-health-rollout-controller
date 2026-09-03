@@ -1,0 +1,11 @@
+# These local/generated files are not needed to run the container.
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+tests/
+
+# Project and editor metadata do not belong in the runtime image.
+.git/
+.gitignore
+.vscode/

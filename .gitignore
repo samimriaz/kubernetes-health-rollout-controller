@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local Python environments
+.venv/
+
+# Generated Linux dependency packages used for offline Docker builds
+wheelhouse/
+
+# Local secrets and environment overrides
+.env
+.env.*
+
+# Operating-system and editor artifacts
+.DS_Store
+Thumbs.db

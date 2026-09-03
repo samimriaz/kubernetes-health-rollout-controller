@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: inference-service
+  namespace: monitoring
+  labels:
+    # The Helm-installed Prometheus selects ServiceMonitors with this label.
+    release: monitoring
+
+spec:
+  # Find the inference Service in the workload namespace.
+  namespaceSelector:
+    matchNames:
+      - workload
+
+  # Select the Service using its metadata label.
+  selector:
+    matchLabels:
+      app: inference-service
+
+  endpoints:
+    # This matches the named port in service.yaml.
+    - port: http
+      path: /metrics
+      interval: 15s

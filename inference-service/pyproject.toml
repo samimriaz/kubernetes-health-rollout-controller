@@ -1,0 +1,40 @@
+[project]
+name = "inference-service"
+version = "0.1.0"
+description = "Inference workload for health-gated Kubernetes rollouts"
+requires-python = ">=3.12,<3.13"
+# Runtime packages are installed in the container that serves the application.
+dependencies = [
+    # FastAPI defines the HTTP API and validates requests and responses.
+    "fastapi>=0.116,<1",
+    # NumPy stores the image as the numeric tensor expected by MobileNet.
+    "numpy>=2.2,<3",
+    # ONNX Runtime executes the trained MobileNet model on the CPU.
+    "onnxruntime>=1.22,<2",
+    # Pillow decodes uploaded JPEG and PNG image files.
+    "pillow>=11,<13",
+    # prometheus-client creates counters, histograms, and /metrics output.
+    "prometheus-client>=0.22,<1",
+    # FastAPI uses python-multipart to receive uploaded files.
+    "python-multipart>=0.0.20,<1",
+    # Uvicorn is the ASGI web server. Its optional "standard" extras are not
+    # needed for this single-worker container and complicate offline builds.
+    "uvicorn>=0.35,<1",
+]
+
+# Development packages are needed for local testing, not for serving requests.
+[dependency-groups]
+dev = [
+    # FastAPI's TestClient uses HTTPX to make in-process HTTP requests.
+    "httpx>=0.28,<1",
+    # Pytest discovers and runs the tests in the tests directory.
+    "pytest>=8.4,<9",
+]
+
+[tool.pytest.ini_options]
+# Restrict automatic test discovery to this service's test directory.
+testpaths = ["tests"]
+
+[tool.uv]
+# This is an application rather than an importable package to publish to PyPI.
+package = false

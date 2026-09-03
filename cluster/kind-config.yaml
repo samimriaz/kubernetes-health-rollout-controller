@@ -1,0 +1,10 @@
+# Create: kind create cluster --name health-rollout --config cluster/kind-config.yaml
+# Delete: kind delete cluster --name health-rollout
+# This file describes the local Kubernetes cluster topology. Workloads such as
+# Deployments and Services will be defined in separate manifest files.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  # A single control-plane node keeps the learning environment lightweight.
+  # kind runs this Kubernetes node as a Docker container.
+  - role: control-plane

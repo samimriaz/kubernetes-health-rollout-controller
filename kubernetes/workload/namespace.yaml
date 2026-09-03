@@ -1,0 +1,10 @@
+# A Namespace provides a logical boundary for related Kubernetes resources.
+# The inference Deployments, Pods, and Service will live in this namespace,
+# separate from monitoring and controller components.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workload
+  labels:
+    # This label records that the namespace belongs to this project.
+    app.kubernetes.io/part-of: health-gated-rollout

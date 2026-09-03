@@ -1,0 +1,10 @@
+# Runtime-only packages installed inside the container. Exact versions make
+# image builds reproducible; pytest and HTTPX are omitted because they test the
+# service but are not needed to run it.
+fastapi==0.141.1
+numpy==2.5.2
+onnxruntime==1.29.0
+pillow==12.3.0
+prometheus-client==0.26.0
+python-multipart==0.0.32
+uvicorn==0.52.4

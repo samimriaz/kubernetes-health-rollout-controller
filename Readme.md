@@ -1,4 +1,7 @@
-# Health-Gated Progressive Rollout Controller (with Simulated GPU Health Checks)
+# Kubernetes Health Rollout Controller
+
+Health-gated progressive canary rollouts with Prometheus monitoring and
+automatic rollback. Simulated GPU health signals are a later increment.
 
 A Kubernetes operator that automates canary rollouts gated on live health signals, with automatic rollback on failure. MVP is a real inference workload with stable/canary rollout and app-health-triggered rollback; GPU telemetry and chaos injection are later increments, not dependencies. Fully local, reproducible with `kind`, no production access required.
 
@@ -97,8 +100,68 @@ Each concern gets its own namespace (workload, monitoring, rollout-system, chaos
 - The load-generator (6.3) is what turns this engineered flaw into real, measurable degraded metrics (rising error rate, rising p95 latency) for the controller to detect — load and "the canary is resource-starved" are two separate, necessary ingredients, not one mechanism.
 
 ### 6.3 `/load-generator` — Real Traffic Driver
-- Sends real requests to the inference service at a configurable rate (`k6`, `hey`, or a small script), so latency/error metrics reflect actual load rather than being toggled.
-- Can ramp load up/down to test the controller's response to genuine degradation under load — this is also how ordinary load/resource pressure (see 6.5) is used to prove rollback *before* chaos tooling is introduced.
+- A dependency-free Python process creates a real PNG in memory and uploads it
+  to `POST /predict` as multipart form data. No sample image or volume mount is
+  required.
+- `TARGET_URL`, `REQUESTS_PER_SECOND`, and `REQUEST_TIMEOUT_SECONDS` make the
+  destination, traffic rate, and timeout configurable from the Deployment.
+- The initial Deployment sends one request per second. Raising
+  `REQUESTS_PER_SECOND` later will test the controller's response to genuine
+  degradation under load.
+
+Build, load, and deploy it locally:
+
+```powershell
+docker build -t load-generator:v0.1.0 .\load-generator
+kind load docker-image load-generator:v0.1.0 --name health-rollout
+kubectl apply -f .\kubernetes\workload\load-generator-deployment.yaml
+kubectl rollout status deployment/load-generator -n workload
+kubectl logs deployment/load-generator -n workload --tail=10
+```
+
+Useful Grafana/Prometheus queries:
+
+```promql
+# Requests per second
+sum(rate(inference_http_requests_total{track="stable",path="/predict"}[1m]))
+
+# Fraction of requests returning HTTP 5xx; show zero before any 5xx exists
+(sum(rate(inference_http_requests_total{track="stable",path="/predict",status=~"5.."}[5m])) or vector(0))
+/ clamp_min(sum(rate(inference_http_requests_total{track="stable",path="/predict"}[5m])), 0.001)
+
+# 95th-percentile inference latency in seconds
+histogram_quantile(0.95,
+  sum by (le) (
+    rate(inference_http_request_duration_seconds_bucket{track="stable",path="/predict"}[5m])
+  )
+)
+```
+
+### 6.3.1 Run the Health-Gated Rollout
+
+Build and load the controller image, install its CRD and controller, then create
+the sample rollout:
+
+```powershell
+docker build -t health-rollout-controller:v0.1.0 .\controller
+kind load docker-image health-rollout-controller:v0.1.0 --name health-rollout
+kubectl apply -k .\controller\config\default
+kubectl rollout status deployment/rollout-controller-manager -n rollout-system
+kubectl apply -f .\controller\config\samples\rollout_v1alpha1_healthgatedrollout.yaml
+```
+
+Watch the decision and verify replica restoration after rollback:
+
+```powershell
+kubectl get healthgatedrollout inference-rollout -n workload -w
+kubectl get deployments inference-stable inference-canary -n workload
+kubectl get events -n workload --field-selector involvedObject.name=inference-rollout
+```
+
+The sample holds when Prometheus has no data, waits for at least five canary
+requests, and requires two unhealthy evaluations 15 seconds apart. On rollback,
+stable returns to one replica and canary returns to zero for a five-minute
+cooldown.
 
 ### 6.4 `/gpu-metrics` — Simulated GPU Telemetry (later increment, not MVP)
 - Named and exposed explicitly as **`simulated_gpu_*`** metrics (e.g., `simulated_gpu_ecc_errors_total`, `simulated_gpu_util_percent`) — never published under real `DCGM_FI_DEV_*` names, since doing so on a CPU-only signal would be misleading to anyone reading the metrics or the code.

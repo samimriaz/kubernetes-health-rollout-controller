@@ -1,0 +1,9 @@
+# Tests and local Python artifacts are unnecessary in the runtime image.
+tests/
+__pycache__/
+*.py[cod]
+
+# Project metadata is managed by the host rather than the container.
+.git/
+.gitignore
+.vscode/

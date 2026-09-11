@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- rollout_v1alpha1_healthgatedrollout.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

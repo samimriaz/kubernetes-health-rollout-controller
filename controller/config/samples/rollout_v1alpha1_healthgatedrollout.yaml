@@ -1,0 +1,31 @@
+apiVersion: rollout.healthrollout.io/v1alpha1
+kind: HealthGatedRollout
+metadata:
+  labels:
+    app.kubernetes.io/name: health-gated-rollout
+    app.kubernetes.io/managed-by: kustomize
+  name: inference-rollout
+  namespace: workload
+spec:
+  stableDeployment: inference-stable
+  canaryDeployment: inference-canary
+  rollbackStableReplicas: 1
+
+  # Replica ratios approximate traffic weights behind the shared Service.
+  steps:
+    - stableReplicas: 3
+      canaryReplicas: 1
+    - stableReplicas: 1
+      canaryReplicas: 1
+
+  prometheusURL: http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+  requestCountQuery: sum(increase(inference_http_requests_total{track="canary",path="/predict"}[1m]))
+  errorRateQuery: (sum(rate(inference_http_requests_total{track="canary",path="/predict",status=~"5.."}[1m])) or vector(0)) / clamp_min(sum(rate(inference_http_requests_total{track="canary",path="/predict"}[1m])), 0.001)
+  latencyQuery: histogram_quantile(0.95, sum by (le) (rate(inference_http_request_duration_seconds_bucket{track="canary",path="/predict"}[1m])))
+
+  minimumRequestCount: 5
+  maxErrorRate: "0.05"
+  maxLatencySeconds: "0.05"
+  failureThreshold: 2
+  evaluationIntervalSeconds: 15
+  cooldownSeconds: 300

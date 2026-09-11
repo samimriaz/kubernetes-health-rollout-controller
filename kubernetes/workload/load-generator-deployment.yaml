@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: workload
+  labels:
+    app: load-generator
+
+spec:
+  # One sequential generator is enough for the initial stable-service baseline.
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: load-generator
+
+  template:
+    metadata:
+      labels:
+        app: load-generator
+
+    spec:
+      containers:
+        - name: load-generator
+          image: load-generator:v0.1.0
+
+          # kind receives this locally built image in the next step. Never
+          # prevents Kubernetes from trying to download it from a registry.
+          imagePullPolicy: Never
+
+          env:
+            # Kubernetes DNS resolves this Service name inside the workload
+            # namespace. The Service then routes to stable/canary pods.
+            - name: TARGET_URL
+              value: http://inference-service:8000/predict
+
+            # Begin with a readable baseline of one real inference each second.
+            # Raising this value later increases pressure on the canary.
+            - name: REQUESTS_PER_SECOND
+              value: "1"
+
+            # A stalled request becomes a logged failure instead of blocking
+            # the generator forever.
+            - name: REQUEST_TIMEOUT_SECONDS
+              value: "10"
+
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

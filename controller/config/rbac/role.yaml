@@ -1,0 +1,49 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rollout.healthrollout.io
+  resources:
+  - healthgatedrollouts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rollout.healthrollout.io
+  resources:
+  - healthgatedrollouts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rollout.healthrollout.io
+  resources:
+  - healthgatedrollouts/status
+  verbs:
+  - get
+  - patch
+  - update

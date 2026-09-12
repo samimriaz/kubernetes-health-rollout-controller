@@ -1,10 +1,20 @@
 # Kubernetes Health Rollout Controller
 
-Health-gated progressive canary rollouts with Prometheus monitoring and
-automatic rollback, simulated GPU health gates, scoped Chaos Mesh experiments,
-and a provisioned Grafana dashboard.
+This project demonstrates a safer way to release a new application version on
+Kubernetes. Instead of replacing every running instance at once, it keeps the
+known-good version running and sends only part of the traffic to the new version.
 
-A Kubernetes operator that automates canary rollouts gated on live health signals, with automatic rollback on failure. MVP is a real inference workload with stable/canary rollout and app-health-triggered rollback; GPU telemetry and chaos injection are later increments, not dependencies. Fully local, reproducible with `kind`, no production access required.
+The known-good version is called **stable**. The new version being tested is
+called the **canary**. Prometheus measures the canary's request errors, response
+time, and simulated GPU health. A custom Go controller checks those measurements
+before allowing the release to continue. If the canary remains healthy, the
+controller moves to the next rollout step. If it repeatedly exceeds a safety
+limit, the controller stops the canary and returns all traffic to stable.
+
+The project also includes Chaos Mesh experiments for testing failures and a
+Grafana dashboard for viewing traffic, latency, GPU signals, and rollbacks. The
+complete system runs locally in a `kind` cluster and does not require production
+access or GPU hardware.
 
 ![Verified health-gated rollout dashboard](docs/results/grafana-rollout-overview.png)
 

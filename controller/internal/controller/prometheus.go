@@ -17,9 +17,16 @@ import (
 var ErrNoData = errors.New("Prometheus query returned no data")
 
 type SignalResult struct {
-	RequestCount float64
-	ErrorRate    float64
-	Latency      float64
+	RequestCount     float64
+	ErrorRate        float64
+	Latency          float64
+	AdditionalChecks []MetricCheckResult
+}
+
+type MetricCheckResult struct {
+	Name     string
+	Value    float64
+	MaxValue float64
 }
 
 type SignalProvider interface {
@@ -50,8 +57,20 @@ func (p *PrometheusSignalProvider) Evaluate(
 	if err != nil {
 		return SignalResult{}, fmt.Errorf("query latency: %w", err)
 	}
+	additionalChecks := make([]MetricCheckResult, 0, len(spec.AdditionalChecks))
+	for _, check := range spec.AdditionalChecks {
+		value, err := p.query(ctx, spec.PrometheusURL, check.Query)
+		if err != nil {
+			return SignalResult{}, fmt.Errorf("query %s: %w", check.Name, err)
+		}
+		additionalChecks = append(additionalChecks, MetricCheckResult{
+			Name: check.Name, Value: value, MaxValue: check.MaxValue.AsApproximateFloat64(),
+		})
+	}
 
-	return SignalResult{RequestCount: requestCount, ErrorRate: errorRate, Latency: latency}, nil
+	return SignalResult{
+		RequestCount: requestCount, ErrorRate: errorRate, Latency: latency, AdditionalChecks: additionalChecks,
+	}, nil
 }
 
 func (p *PrometheusSignalProvider) query(ctx context.Context, baseURL, query string) (float64, error) {

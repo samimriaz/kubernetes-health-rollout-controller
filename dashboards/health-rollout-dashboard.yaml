@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-rollout-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  health-rollout.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 0,
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "enable": true,
+            "expr": "changes(health_gated_rollout_rollbacks_total{exported_namespace=\"workload\"}[1m]) > 0",
+            "name": "Automatic rollback",
+            "step": "15s",
+            "tagKeys": "name",
+            "titleFormat": "Rollback: {{name}}"
+          }
+        ]
+      },
+      "editable": true,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 12, "lineWidth": 2}, "min": 0}},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "id": 1,
+          "targets": [{"expr": "kube_deployment_spec_replicas{namespace=\"workload\",deployment=~\"inference-(stable|canary)\"}", "legendFormat": "{{deployment}}", "refId": "A"}],
+          "title": "Rollout Replica State",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps"}},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "id": 2,
+          "targets": [{"expr": "sum by (track) (rate(inference_http_requests_total{path=\"/predict\"}[1m]))", "legendFormat": "{{track}}", "refId": "A"}],
+          "title": "Inference Request Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 5}]}, "unit": "percent"}},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+          "id": 3,
+          "targets": [{"expr": "100 * (sum by (track) (rate(inference_http_requests_total{path=\"/predict\",status=~\"5..\"}[1m])) or sum by (track) (rate(inference_http_requests_total{path=\"/predict\"}[1m])) * 0) / clamp_min(sum by (track) (rate(inference_http_requests_total{path=\"/predict\"}[1m])), 0.001)", "legendFormat": "{{track}}", "refId": "A"}],
+          "title": "Inference Error Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"min": 0, "unit": "s"}},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+          "id": 4,
+          "targets": [{"expr": "histogram_quantile(0.95, sum by (track, le) (rate(inference_http_request_duration_seconds_bucket{path=\"/predict\"}[1m])))", "legendFormat": "{{track}}", "refId": "A"}],
+          "title": "Inference p95 Latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"fixedColor": "red", "mode": "fixed"}, "decimals": 0, "min": 0, "noValue": "0"}},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+          "id": 5,
+          "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "auto"},
+          "targets": [{"expr": "sum(health_gated_rollout_rollbacks_total{exported_namespace=\"workload\"})", "refId": "A"}],
+          "title": "Automatic Rollbacks",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}, "min": 0}, "overrides": [{"matcher": {"id": "byName", "options": "Temperature"}, "properties": [{"id": "unit", "value": "celsius"}] }]},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+          "id": 6,
+          "targets": [
+            {"expr": "max(simulated_gpu_temperature_celsius)", "legendFormat": "Temperature", "refId": "A"},
+            {"expr": "max(simulated_gpu_ecc_errors_total)", "legendFormat": "ECC errors", "refId": "B"}
+          ],
+          "title": "Simulated GPU Health (not hardware telemetry)",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": ["canary", "rollout", "simulated-gpu"],
+      "time": {"from": "now-30m", "to": "now"},
+      "timezone": "browser",
+      "title": "Health-Gated Canary Rollout",
+      "uid": "health-gated-rollout",
+      "version": 1
+    }

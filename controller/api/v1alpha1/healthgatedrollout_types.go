@@ -57,6 +57,10 @@ type HealthGatedRolloutSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	LatencyQuery string `json:"latencyQuery"`
 
+	// additionalChecks defines optional Prometheus signals such as simulated GPU health.
+	// +optional
+	AdditionalChecks []MetricCheck `json:"additionalChecks,omitempty"`
+
 	// minimumRequestCount prevents health decisions based on too little traffic.
 	// +kubebuilder:validation:Minimum=1
 	MinimumRequestCount int64 `json:"minimumRequestCount"`
@@ -80,6 +84,20 @@ type HealthGatedRolloutSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:default=300
 	CooldownSeconds int32 `json:"cooldownSeconds,omitempty"`
+}
+
+// MetricCheck defines an optional upper-bound health signal from Prometheus.
+type MetricCheck struct {
+	// name identifies the signal in rollout status and Events.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// query must return one scalar or instant-vector value.
+	// +kubebuilder:validation:MinLength=1
+	Query string `json:"query"`
+
+	// maxValue is the largest value considered healthy.
+	MaxValue resource.Quantity `json:"maxValue"`
 }
 
 // RolloutStep defines one approximate traffic split through replica counts.

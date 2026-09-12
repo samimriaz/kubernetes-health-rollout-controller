@@ -1,9 +1,32 @@
 # Kubernetes Health Rollout Controller
 
 Health-gated progressive canary rollouts with Prometheus monitoring and
-automatic rollback. Simulated GPU health signals are a later increment.
+automatic rollback, simulated GPU health gates, scoped Chaos Mesh experiments,
+and a provisioned Grafana dashboard.
 
 A Kubernetes operator that automates canary rollouts gated on live health signals, with automatic rollback on failure. MVP is a real inference workload with stable/canary rollout and app-health-triggered rollback; GPU telemetry and chaos injection are later increments, not dependencies. Fully local, reproducible with `kind`, no production access required.
+
+![Verified health-gated rollout dashboard](docs/results/grafana-rollout-overview.png)
+
+## Quick Start
+
+Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The
+default demo does not require a GPU.
+
+```powershell
+.\scripts\demo.ps1
+```
+
+Include the pinned Chaos Mesh installation and server-side experiment
+validation with:
+
+```powershell
+.\scripts\demo.ps1 -InstallChaos
+```
+
+The script creates or reuses `health-rollout`, deploys the complete stack,
+switches the explicitly simulated GPU exporter to degraded mode, and exits only
+after the controller reports `RolledBack`. See [the captured results](docs/results/README.md).
 
 ## 1. Motivation
 
@@ -41,28 +64,191 @@ Rationale: a working rollback loop is the actual portfolio proof point. GPU and 
 
 ## 5. Architecture Overview
 
-```
-                ┌────────────────────────────────────┐
-                │           kind cluster              │
-                │                                      │
-                │  ns: workload                        │
-  demo.sh ─────▶│    inference-service (stable + canary)│
-                │    load-generator                    │
-                │                                      │
-                │  ns: monitoring                      │
-                │    Prometheus, Grafana               │
-                │                                      │
-                │  ns: rollout-system                  │
-                │    rollout-controller                │◀── watches Rollout CRD
-                │                                      │
-                │  ns: chaos-testing  (later increment)│
-                │    Chaos Mesh                        │
-                └────────────────────────────────────┘
+The system separates workload execution, rollout control, monitoring, and fault
+injection into four namespaces. The controller changes replica counts; it never
+handles application traffic. Prometheus is the boundary between workload health
+and rollout decisions.
+
+```mermaid
+flowchart LR
+    Demo[demo.ps1] -->|creates and configures| Kind[kind cluster]
+
+    subgraph Workload[workload namespace]
+        Load[Load generator] -->|POST /predict| Service[Shared inference Service]
+        Service -->|common app selector| Stable[Stable Deployment<br/>track=stable<br/>good resource profile]
+        Service -->|common app selector| Canary[Canary Deployment<br/>track=canary<br/>constrained profile]
+        Stable -->|request and latency metrics| Monitor[Inference ServiceMonitor]
+        Canary -->|request and latency metrics| Monitor
+    end
+
+    subgraph Rollout[rollout-system namespace]
+        CR[HealthGatedRollout CR]
+        Controller[Go rollout controller]
+        CR -->|watch and status updates| Controller
+        Controller -->|scale replicas| Stable
+        Controller -->|scale replicas| Canary
+    end
+
+    subgraph Monitoring[monitoring namespace]
+        Prometheus[Prometheus]
+        GPU[Simulated GPU exporter<br/>simulated_gpu_*]
+        Grafana[Grafana dashboard]
+        Monitor -->|scrape discovery| Prometheus
+        GPU -->|58 C / 0 ECC healthy<br/>96 C / 8 ECC degraded| Prometheus
+        Prometheus -->|dashboard queries| Grafana
+    end
+
+    Controller -->|configurable PromQL| Prometheus
+    Controller -->|rollback counter| Prometheus
+
+    subgraph Chaos[chaos-testing namespace]
+        ChaosMesh[Chaos Mesh<br/>pod kill / delay / CPU stress]
+    end
+    ChaosMesh -.->|canary label selector only| Canary
 ```
 
-Each concern gets its own namespace (workload, monitoring, rollout-system, chaos-testing) rather than one shared namespace — this is both good practice and a practical necessity: the existing `ads-team-quota.yaml` five-pod quota cannot fit the complete stack in a single namespace.
+### 5.1 Traffic and ownership
 
-**MVP flow:** load-generator drives real requests against the shared Service in front of stable + canary Deployments → controller shifts the stable:canary replica ratio in steps → on each step, queries Prometheus (via configurable PromQL, filtered by the `track` label) over a defined observation window for canary error rate and latency → if thresholds are breached across a required number of consecutive failing samples, controller halts and rolls back by returning canary replicas to zero → Grafana shows the sequence.
+- The stable and canary Deployments both use `app: inference-service`, so one
+  Kubernetes Service sends traffic to both.
+- Their distinct `track: stable` and `track: canary` labels are attached to
+  application metrics. Prometheus can therefore evaluate the canary without
+  mixing its measurements with the stable version.
+- Traffic weighting is approximate and follows the replica ratio. The first
+  rollout step uses three stable replicas and one canary replica, or roughly
+  75% stable / 25% canary. The second step uses one of each, or roughly 50/50.
+- The `HealthGatedRollout` custom resource is the desired policy. The Go
+  controller owns the scaling decisions and writes phase, step, failure count,
+  timestamps, and conditions back to its status.
+- Prometheus scrapes the inference service, simulated GPU exporter, Kubernetes
+  state metrics, and the controller's rollback counter. Grafana reads the same
+  data used by the controller, making the decision path observable.
+
+### 5.2 What “good” and “bad” mean in this demo
+
+The application test does not hide a scripted failure inside a separate bad
+binary. Both Deployments use `inference-service:v0.1.0`, but they represent two
+release configurations:
+
+| Release | Initial replicas | CPU request | CPU limit | Purpose |
+|---|---:|---:|---:|---|
+| Stable / good | 1 | 200m | 1 core | Known-good baseline with enough inference capacity |
+| Canary / degraded | 0 | 100m | 200m | Release candidate deliberately constrained under real MobileNet traffic |
+
+The canary starts at zero replicas. Applying the rollout custom resource makes
+the controller deploy it at the first 3:1 step. The load generator continues to
+send real PNG uploads to `/predict`; requests that land on the constrained
+canary produce genuine latency or error measurements rather than fabricated
+application responses.
+
+The GPU-gated demonstration is a second, independent failure path. Its exporter
+is clearly simulated and changes from a healthy profile (`58 C`, `0` ECC errors)
+to a degraded profile (`96 C`, `8` ECC errors). The GPU rollout deliberately
+sets permissive application thresholds so the recorded rollback can be
+attributed specifically to the two GPU checks.
+
+### 5.3 Deployment sequence
+
+```mermaid
+sequenceDiagram
+    participant Demo as demo.ps1
+    participant K8s as Kubernetes API
+    participant Stable as Stable pods
+    participant Canary as Canary pods
+    participant Load as Load generator
+    participant Prom as Prometheus
+    participant Ctrl as Rollout controller
+
+    Demo->>K8s: Deploy stable with 1 replica
+    K8s->>Stable: Start known-good MobileNet service
+    Demo->>K8s: Deploy canary with 0 replicas
+    Demo->>K8s: Deploy shared Service and load generator
+    Load->>Stable: Send real POST /predict traffic
+    Stable-->>Prom: Export stable request and latency metrics
+
+    Demo->>K8s: Apply HealthGatedRollout
+    K8s-->>Ctrl: Reconcile rollout policy
+    Ctrl->>K8s: Scale stable:canary to 3:1
+    K8s->>Canary: Start constrained release candidate
+    Load->>Stable: Continue shared-Service traffic
+    Load->>Canary: Route a share of real requests
+    Canary-->>Prom: Export track=canary metrics
+
+    loop Every 15 seconds
+        Ctrl->>Prom: Query count, error rate, p95, and optional GPU checks
+        Prom-->>Ctrl: Return one-minute-window values
+    end
+
+    Ctrl->>K8s: Require 2 consecutive unhealthy evaluations
+    Ctrl->>K8s: Scale canary to 0 and stable to 1
+    Ctrl->>K8s: Set phase=RolledBack and emit Event
+    Ctrl-->>Prom: Increment rollback counter
+    Prom-->>Grafana: Visualize traffic, health, and rollback
+```
+
+The deployment order matters. Prometheus and the load generator are running
+before the rollout starts, giving the controller real traffic data as soon as
+the canary becomes Ready. If Prometheus is unavailable, a query is empty, or
+fewer than five canary requests exist in the one-minute window, the controller
+holds the current step. It never promotes or rolls back from missing evidence.
+
+### 5.4 How the metrics changed
+
+The controller evaluates these signals from Prometheus:
+
+| Signal | Healthy behavior | Degraded behavior | App rollout limit | GPU rollout limit |
+|---|---|---|---:|---:|
+| Canary request count | At least 5 requests in 1 minute | Same prerequisite | 5 minimum | 5 minimum |
+| Canary HTTP 5xx rate | Near 0 | Rises if inference fails | 5% | 50% |
+| Canary p95 latency | Stable remains much lower | Observed canary p95 reached 0.7651 s | 0.05 s | 10 s |
+| Simulated GPU temperature | 58 C | 96 C | Not configured | 85 C |
+| Simulated GPU ECC errors | 0 | 8 | Not configured | 1 |
+
+The app-health rollout rolled back when real canary latency exceeded its limit:
+
+```text
+Health thresholds exceeded: latency 0.7651s > 0.0500s
+```
+
+The separately verified GPU rollout rolled back with both simulated signals in
+the reason:
+
+```text
+Health thresholds exceeded: simulated GPU temperature 96.0000 > 85.0000,
+simulated GPU ECC errors 8.0000 > 1.0000
+```
+
+### 5.5 Rollback decision
+
+```mermaid
+flowchart TD
+    Start[Reconcile rollout] --> Scale[Apply current replica step]
+    Scale --> Query[Query Prometheus after 15 seconds]
+    Query --> Data{Prometheus available<br/>and at least 5 requests?}
+    Data -->|No| Hold[Hold current step<br/>no promotion or rollback]
+    Hold --> Query
+    Data -->|Yes| Threshold{Any configured<br/>threshold exceeded?}
+    Threshold -->|No| Advance{More rollout steps?}
+    Advance -->|Yes| Scale
+    Advance -->|No| Promote[Set phase Promoted]
+    Threshold -->|Yes| Failures{2 consecutive<br/>failures?}
+    Failures -->|No| Query
+    Failures -->|Yes| Rollback[Scale stable to 1<br/>scale canary to 0]
+    Rollback --> Record[Set phase RolledBack<br/>emit Event<br/>increment metric]
+    Record --> Cooldown[Hold for 300 seconds]
+```
+
+Two failures must be separated by the configured 15-second evaluation interval;
+extra reconciliations cannot accelerate the count. On rollback, the controller
+restores `inference-stable` to one replica, scales `inference-canary` to zero,
+sets `status.phase` to `RolledBack`, emits a `RolloutRolledBack` Event, increments
+`health_gated_rollout_rollbacks_total`, and starts a five-minute cooldown.
+
+The verified dashboard below shows the replica transitions, real request rate,
+p95 latency, and rollback count. The complete captured results and simulated GPU
+view are in [docs/results/README.md](docs/results/README.md).
+
+![Verified rollout and automatic rollback](docs/results/grafana-rollout-overview.png)
 
 ## 6. Components
 
@@ -165,7 +351,7 @@ cooldown.
 
 ### 6.4 `/gpu-metrics` — Simulated GPU Telemetry (later increment, not MVP)
 - Named and exposed explicitly as **`simulated_gpu_*`** metrics (e.g., `simulated_gpu_ecc_errors_total`, `simulated_gpu_util_percent`) — never published under real `DCGM_FI_DEV_*` names, since doing so on a CPU-only signal would be misleading to anyone reading the metrics or the code.
-- Both the simulated exporter and a real DCGM Exporter are just Prometheus metric sources — neither is itself a `SignalProvider`; the controller's one `SignalProvider` implementation queries Prometheus via configurable PromQL (see 6.1). Swapping simulated GPU signals for real DCGM later means pointing the query configuration at different metric names, not writing new controller code — the interface boundary is what makes the "simulated vs. real" distinction honest rather than hand-wavy.
+- Both the simulated exporter and a real DCGM Exporter are Prometheus metric sources; neither is itself a `SignalProvider`. The controller's Prometheus-backed provider evaluates configurable additional checks. Swapping simulated GPU signals for real DCGM later means changing query configuration, not controller logic.
 - Real GPU access through `kind` (especially on Windows/WSL2) is expected to be one of the hardest parts of this project environment-wise. The CPU/simulated path is the **guaranteed, documented local demo**; real-GPU mode is documented as an explicitly optional, separate environment path — not something the main demo depends on.
 
 ### 6.5 `/chaos` — Failure Injection (later increment, sequenced after MVP rollback works)
@@ -174,51 +360,50 @@ cooldown.
 - Deployed in its own `chaos-testing` namespace, separate from the workload and monitoring stacks.
 
 ### 6.6 `/dashboards` — Grafana Dashboards (polish increment, after MVP)
-- JSON dashboard definitions checked into git (reviewable without running the project).
-- Panels: rollout progress/step, real request latency & error rate, rollback event annotations; simulated GPU panels added once 6.4 lands.
+- A dashboard ConfigMap is checked into git and loaded by Grafana's sidecar.
+- Panels show stable/canary replicas, request rate, error rate, p95 latency,
+  rollback count, and explicitly labeled simulated GPU telemetry.
 - Deployed via `kube-prometheus-stack` Helm chart, in its own `monitoring` namespace.
 
 ### 6.7 `/scripts` — One-Command Demo
-- `demo.sh` (MVP version):
+- `demo.ps1`:
   1. Spin up `kind` cluster
   2. Create namespaces: `workload`, `monitoring`, `rollout-system`
   3. Install `kube-prometheus-stack` into `monitoring`
   4. Deploy stable + canary `inference-service` (behind the shared Service, per 6.2), controller + CRDs into their namespaces
   5. Start the load-generator against the shared Service
-  6. Start a rollout — canary is running resource-starved (per 6.2) from the start, so ramping load surfaces real degraded metrics
-  7. Show controller detecting the issue via real metrics and rolling back, live in terminal output
+  6. Switch the simulated GPU exporter to its degraded profile and start a rollout
+  7. Show the controller detecting both GPU threshold breaches and rolling back
   8. Print a link/hint to open the Grafana dashboard
-- Extended later with a `chaos-testing` namespace and a `--chaos` flag once 6.5 lands.
+- `-InstallChaos` installs pinned Chaos Mesh 2.8.0 and validates all experiment manifests against its admission webhooks.
 
-**Environment requirements (document explicitly in README, especially for Windows):**
-- Windows: WSL2 (Ubuntu recommended) or Git Bash, since `demo.sh` is a bash script
+**Environment requirements:**
+- Windows PowerShell 7
 - Docker Desktop (with WSL2 integration enabled, if on Windows)
 - `kind`, `kubectl`, `helm` — versions pinned in README
 - No GPU drivers/toolkit required for the default CPU/simulated path
 
 ## 7. Milestones
 
-| # | Milestone | Deliverable | Phase |
-|---|-----------|-------------|-------|
-| 1 | Local cluster + real inference service running | `kind` cluster, namespaces created, stable inference-service deployed, real requests succeed | MVP |
-| 2 | Prometheus + Grafana stack | Prometheus/Grafana installed and scraping the inference service, base dashboard, deployed in `monitoring` namespace | MVP |
-| 3 | Load generator producing real, visible traffic | Configurable request rate; latency/error metrics from real calls visible in Grafana (Prometheus already installed per milestone 2) | MVP |
-| 4 | Controller v1 — stable/canary rollout with app-health rollback | Reconcile loop with defined observation window, sample minimums, thresholds, consecutive-failure/cooldown logic, and explicit no-data behavior; rolls back reliably on real error rate/latency breach | MVP |
-| 5 | Simulated GPU metrics wired in | `simulated_gpu_*` exporter implementing the `SignalProvider` interface; controller thresholds extended | Later increment |
-| 6 | Chaos experiments | Chaos Mesh introduced only after milestone 4 is proven reliable with ordinary load/resource pressure | Later increment |
-| 7 | Dashboards + annotations | Grafana panels show rollout + rollback events clearly, including simulated GPU panels | Later increment |
-| 8 | Demo polish | `demo.sh` one-command run, asciinema/GIF recording, README | Later increment |
+| # | Milestone | Deliverable | Status |
+|---|-----------|-------------|--------|
+| 1 | Local cluster + real inference service | kind cluster, namespaces, stable inference, and real requests | Complete |
+| 2 | Prometheus + Grafana | Monitoring stack scraping the inference service | Complete |
+| 3 | Load generator | Configurable real traffic with latency/error metrics | Complete |
+| 4 | Controller v1 | Timed evaluation, no-data hold, promotion, and app-health rollback | Complete |
+| 5 | Simulated GPU metrics | Explicit `simulated_gpu_*` exporter and configurable PromQL checks | Complete |
+| 6 | Chaos experiments | Scoped pod-kill, network-delay, and CPU-stress experiments | Complete |
+| 7 | Dashboards + annotations | Provisioned rollout, app, rollback, and simulated GPU panels | Complete |
+| 8 | Demo polish | Idempotent PowerShell demo, screenshots, results, and README | Complete |
 
 **Best first portfolio checkpoint:** milestones 1–4 complete — a real inference service with metrics, a stable/canary rollout, and an app-health-triggered rollback that works reliably. That alone is a legitimate, demo-able project. GPU and chaos features are enhancements on top of it, not blockers to shipping it.
 
-## 8. README / Portfolio Presentation Plan
+## 8. Portfolio Evidence
 
-- Short problem statement (why health-gated rollouts matter).
-- Architecture diagram (from Section 5), with a clear note on what's MVP vs. later increments.
-- **Recorded demo GIF or asciinema** near the top, of the MVP rollback loop — this is the highest-leverage asset for reviewers who won't run the code.
-- "How to run it" — `git clone && ./scripts/demo.sh`.
-- "Design decisions" section explaining the rollout-decision logic (observation windows, thresholds, no-data handling) — good source material for interview talking points.
-- Explicit, upfront note that GPU metrics are simulated (`simulated_gpu_*`) unless run in the optional real-GPU environment — no ambiguity about what's real vs. simulated anywhere in the repo.
+- [Runtime results and screenshots](docs/results/README.md)
+- [One-command demo](scripts/demo.ps1)
+- [Grafana dashboard manifest](dashboards/health-rollout-dashboard.yaml)
+- [Chaos Mesh experiments](chaos/)
 
 ## 9. Stretch Goals (optional, well beyond MVP)
 
@@ -234,6 +419,6 @@ cooldown.
 - **Inference workload:** FastAPI/Go server + MobileNet (ONNX Runtime), CPU-only by default
 - **Load generation:** k6, hey, or a small custom script
 - **Metrics:** Prometheus, kube-prometheus-stack (Helm), Grafana
-- **Simulated GPU telemetry:** `simulated_gpu_*`-named exporter implementing a shared `SignalProvider` interface, swappable for real DCGM Exporter later
+- **Simulated GPU telemetry:** `simulated_gpu_*`-named Prometheus exporter with configurable controller checks, swappable for real DCGM metrics later
 - **Chaos:** Chaos Mesh (introduced after MVP rollback is proven)
-- **Demo automation:** bash scripts, asciinema for recording
+- **Demo automation:** PowerShell one-command workflow with checked-in runtime evidence

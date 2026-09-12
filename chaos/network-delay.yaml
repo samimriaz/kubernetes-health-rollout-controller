@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: inference-canary-network-delay
+  namespace: chaos-testing
+spec:
+  action: delay
+  mode: all
+  duration: 60s
+  selector:
+    namespaces:
+      - workload
+    labelSelectors:
+      app: inference-service
+      track: canary
+  delay:
+    latency: 250ms
+    correlation: "50"
+    jitter: 50ms
+  direction: to

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,6 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	rolloutv1alpha1 "github.com/samimriaz/kubernetes-health-rollout-controller/controller/api/v1alpha1"
 )
@@ -59,7 +61,7 @@ var rollbackCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 }, []string{"namespace", "name"})
 
 func init() {
-	prometheus.MustRegister(rollbackCounter)
+	metrics.Registry.MustRegister(rollbackCounter)
 }
 
 // +kubebuilder:rbac:groups=rollout.healthrollout.io,resources=healthgatedrollouts,verbs=get;list;watch;create;update;patch;delete
@@ -153,12 +155,23 @@ func (r *HealthGatedRolloutReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	maxErrorRate := rollout.Spec.MaxErrorRate.AsApproximateFloat64()
 	maxLatency := rollout.Spec.MaxLatencySeconds.AsApproximateFloat64()
-	unhealthy := signals.ErrorRate > maxErrorRate || signals.Latency > maxLatency
+	breaches := make([]string, 0, len(signals.AdditionalChecks)+2)
+	if signals.ErrorRate > maxErrorRate {
+		breaches = append(breaches, fmt.Sprintf("error rate %.4f > %.4f", signals.ErrorRate, maxErrorRate))
+	}
+	if signals.Latency > maxLatency {
+		breaches = append(breaches, fmt.Sprintf("latency %.4fs > %.4fs", signals.Latency, maxLatency))
+	}
+	for _, check := range signals.AdditionalChecks {
+		if check.Value > check.MaxValue {
+			breaches = append(breaches, fmt.Sprintf("%s %.4f > %.4f", check.Name, check.Value, check.MaxValue))
+		}
+	}
+	unhealthy := len(breaches) > 0
 	if unhealthy {
 		rollout.Status.Phase = phaseProgressing
 		rollout.Status.ConsecutiveFailures++
-		message := fmt.Sprintf("Canary error rate %.4f (max %.4f), latency %.4fs (max %.4fs)",
-			signals.ErrorRate, maxErrorRate, signals.Latency, maxLatency)
+		message := "Health thresholds exceeded: " + strings.Join(breaches, ", ")
 		setCondition(rollout, metav1.ConditionFalse, "HealthThresholdExceeded", message)
 		if rollout.Status.ConsecutiveFailures < rollout.Spec.FailureThreshold {
 			return ctrl.Result{RequeueAfter: interval}, r.Status().Update(ctx, rollout)
@@ -207,6 +220,11 @@ func validateSpec(spec *rolloutv1alpha1.HealthGatedRolloutSpec) error {
 	}
 	if spec.MaxLatencySeconds.Sign() <= 0 {
 		return fmt.Errorf("spec.maxLatencySeconds must be greater than 0")
+	}
+	for _, check := range spec.AdditionalChecks {
+		if check.MaxValue.Sign() < 0 {
+			return fmt.Errorf("spec.additionalChecks[%s].maxValue must not be negative", check.Name)
+		}
 	}
 	return nil
 }

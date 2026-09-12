@@ -1,0 +1,18 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: inference-canary-cpu-stress
+  namespace: chaos-testing
+spec:
+  mode: all
+  duration: 60s
+  selector:
+    namespaces:
+      - workload
+    labelSelectors:
+      app: inference-service
+      track: canary
+  stressors:
+    cpu:
+      workers: 1
+      load: 80

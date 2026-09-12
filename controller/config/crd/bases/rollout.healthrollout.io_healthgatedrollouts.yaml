@@ -40,6 +40,36 @@ spec:
           spec:
             description: spec defines the desired state of HealthGatedRollout
             properties:
+              additionalChecks:
+                description: additionalChecks defines optional Prometheus signals
+                  such as simulated GPU health.
+                items:
+                  description: MetricCheck defines an optional upper-bound health
+                    signal from Prometheus.
+                  properties:
+                    maxValue:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: maxValue is the largest value considered healthy.
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    name:
+                      description: name identifies the signal in rollout status and
+                        Events.
+                      minLength: 1
+                      type: string
+                    query:
+                      description: query must return one scalar or instant-vector
+                        value.
+                      minLength: 1
+                      type: string
+                  required:
+                  - maxValue
+                  - name
+                  - query
+                  type: object
+                type: array
               canaryDeployment:
                 description: canaryDeployment is the candidate Deployment managed
                   by this rollout.

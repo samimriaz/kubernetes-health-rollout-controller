@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulated-gpu-exporter
+  namespace: monitoring
+  labels:
+    app: simulated-gpu-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simulated-gpu-exporter
+  template:
+    metadata:
+      labels:
+        app: simulated-gpu-exporter
+    spec:
+      containers:
+        - name: exporter
+          image: simulated-gpu-exporter:v0.1.0
+          imagePullPolicy: Never
+          env:
+            - name: SIMULATED_GPU_MODE
+              value: healthy
+          ports:
+            - name: metrics
+              containerPort: 9101
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simulated-gpu-exporter
+  namespace: monitoring
+  labels:
+    app: simulated-gpu-exporter
+spec:
+  selector:
+    app: simulated-gpu-exporter
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: simulated-gpu-exporter
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: simulated-gpu-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

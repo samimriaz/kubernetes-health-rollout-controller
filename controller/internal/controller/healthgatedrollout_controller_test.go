@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +89,29 @@ func TestReconcileRollsBackAfterConsecutiveFailures(t *testing.T) {
 	assertReplicas(t, reconciler, key.Namespace, "inference-stable", 1)
 }
 
+func TestReconcileRollsBackForAdditionalSignal(t *testing.T) {
+	signals := SignalResult{
+		RequestCount: 20,
+		ErrorRate:    0,
+		Latency:      0.1,
+		AdditionalChecks: []MetricCheckResult{{
+			Name: "simulated GPU temperature", Value: 96, MaxValue: 85,
+		}},
+	}
+	reconciler, key := newTestReconciler(t, staticSignals(signals))
+
+	reconcileOnce(t, reconciler, key)
+	reconciler.Now = func() time.Time { return time.Unix(1_015, 0) }
+	reconcileOnce(t, reconciler, key)
+
+	rollout := getRollout(t, reconciler, key)
+	if rollout.Status.Phase != phaseRolledBack {
+		t.Fatalf("phase = %q, want %q", rollout.Status.Phase, phaseRolledBack)
+	}
+	if got := rollout.Status.Conditions[0].Message; !strings.Contains(got, "simulated GPU temperature") {
+		t.Fatalf("condition message %q does not identify the failed GPU signal", got)
+	}
+}
 func newTestReconciler(t *testing.T, provider SignalProvider) (*HealthGatedRolloutReconciler, types.NamespacedName) {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -108,6 +132,9 @@ func newTestReconciler(t *testing.T, provider SignalProvider) (*HealthGatedRollo
 			PrometheusURL: "http://prometheus", RequestCountQuery: "requests", ErrorRateQuery: "errors", LatencyQuery: "latency",
 			MinimumRequestCount: 10, MaxErrorRate: resource.MustParse("0.05"), MaxLatencySeconds: resource.MustParse("0.5"),
 			FailureThreshold: 2, EvaluationIntervalSeconds: 15, CooldownSeconds: 300,
+			AdditionalChecks: []rolloutv1alpha1.MetricCheck{{
+				Name: "simulated GPU temperature", Query: "gpu_temperature", MaxValue: resource.MustParse("85"),
+			}},
 		},
 		Status: rolloutv1alpha1.HealthGatedRolloutStatus{ObservedGeneration: 1, Phase: phaseProgressing},
 	}

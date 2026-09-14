@@ -32,38 +32,7 @@ flowchart LR
 4. **Roll back to stable:** Remove the candidate and keep the known-good release
   serving traffic after repeated unhealthy evaluations.
 
-## Quick Start
-
-Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The
-default demo does not require a GPU.
-
-`demo.ps1` is **not the project, a container, or part of the running
-architecture**. It is a PowerShell helper that prepares the local environment
-and runs one complete demonstration. It is equivalent to executing all setup
-and demonstration commands manually. It:
-
-1. Creates or reuses the local `health-rollout` kind cluster.
-2. Installs Prometheus and Grafana with Helm.
-3. Builds the inference service, load generator, GPU exporter, and Go controller
-  container images, then loads them into kind.
-4. Applies the Kubernetes resources and waits for every Deployment to become
-  ready.
-5. Installs Chaos Mesh and validates the canary failure experiments.
-6. Changes the simulated GPU exporter from healthy to degraded, starts a
-  rollout, and waits until the controller proves the rollback.
-7. Prints the rollback reason, final stable/canary replica counts, and the
-  command for opening Grafana.
-
-The script stops immediately if a required command fails. It can be rerun
-because it reuses the named cluster and updates existing resources.
-
-```powershell
-.\scripts\demo.ps1
-```
-
-The script creates or reuses `health-rollout`, deploys the complete stack,
-switches the explicitly simulated GPU exporter to degraded mode, and exits only
-after the controller reports `RolledBack`. See [the captured results](docs/results/README.md).
+![Verified health-gated rollout dashboard](docs/results/grafana-rollout-overview.png)
 
 ## 1. Goals
 
@@ -319,9 +288,37 @@ view are in [docs/results/README.md](docs/results/README.md).
 
 ![Verified rollout and automatic rollback](docs/results/grafana-rollout-overview.png)
 
-## 4. Components
+## 4. Quick Start
 
-### 4.1 Rollout controller
+Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The
+demo does not require a GPU.
+
+`demo.ps1` is a PowerShell helper that executes the setup and demonstration
+steps described above. It:
+
+1. Creates or reuses the local `health-rollout` kind cluster.
+2. Installs Prometheus and Grafana with Helm.
+3. Builds the inference service, load generator, GPU exporter, and rollout
+  manager container images, then loads them into kind.
+4. Applies the Kubernetes resources and waits for every Deployment to become
+  ready.
+5. Installs Chaos Mesh and validates the canary failure experiments.
+6. Changes the simulated GPU exporter from healthy to degraded, starts a
+  rollout, and waits until the rollout manager proves the rollback.
+7. Prints the rollback reason, final stable/canary replica counts, and the
+  command for opening Grafana.
+
+```powershell
+.\scripts\demo.ps1
+```
+
+The script stops if a required command fails and can be rerun against the named
+cluster. It exits after the rollout reports `RolledBack`. See
+[the captured results](docs/results/README.md).
+
+## 5. Components
+
+### 5.1 Rollout controller
 
 The Go controller in [`controller/`](controller/) was built with Kubebuilder. It
 watches `HealthGatedRollout` resources, scales the stable and canary Deployments,
@@ -354,7 +351,7 @@ requires at least five canary requests, and rolls back after two consecutive
 unhealthy evaluations. Missing data causes a hold rather than a promotion or
 rollback.
 
-### 4.2 Inference service and traffic
+### 5.2 Inference service and traffic
 
 [`inference-service/`](inference-service/) is a FastAPI application running
 MobileNet through ONNX Runtime. Stable and canary are separate Deployments with
@@ -367,14 +364,14 @@ Both expose request counters and latency histograms labeled by track, and both
 include startup, readiness, and liveness probes plus restricted security
 contexts.
 
-### 4.3 Load generator
+### 5.3 Load generator
 
 [`load-generator/`](load-generator/) contains a dependency-free Python process
 that creates a PNG in memory and continuously uploads it to `POST /predict`.
 `TARGET_URL`, `REQUESTS_PER_SECOND`, and `REQUEST_TIMEOUT_SECONDS` configure the
 traffic without rebuilding the image.
 
-### 4.4 Simulated GPU telemetry
+### 5.4 Simulated GPU telemetry
 
 [`gpu-metrics/`](gpu-metrics/) exposes clearly named `simulated_gpu_*` metrics.
 Healthy mode reports 58 C and zero ECC errors; degraded mode reports 96 C and
@@ -382,35 +379,35 @@ eight ECC errors. These are test signals, not hardware measurements or DCGM
 metrics. The controller evaluates them through the same configurable PromQL
 check mechanism used for application signals.
 
-### 4.5 Monitoring and dashboard
+### 5.5 Monitoring and dashboard
 
 The Helm-installed kube-prometheus-stack runs in `monitoring`. ServiceMonitors
 discover the inference service, GPU exporter, and controller. The checked-in
 Grafana dashboard shows replica state, request rate, error rate, p95 latency,
 rollback count, and simulated GPU health.
 
-### 4.6 Failure injection
+### 5.6 Failure injection
 
 [`chaos/`](chaos/) contains scoped Chaos Mesh experiments for canary pod
 termination, 250 ms outbound network delay, and one CPU stress worker at 80%
 load. Every selector requires both `app: inference-service` and `track: canary`,
 so the stable Deployment is not targeted.
 
-### 4.7 Demo automation
+### 5.7 Demo automation
 
 [`scripts/demo.ps1`](scripts/demo.ps1) creates or reuses the cluster, installs
 monitoring and pinned Chaos Mesh 2.8.0, builds and loads the local images,
 deploys the complete system, validates the experiment manifests, switches the
 simulated GPU exporter to degraded mode, and waits for a confirmed rollback.
 
-## 5. Evidence
+## 6. Evidence
 
 - [Runtime results and screenshots](docs/results/README.md)
 - [One-command demo](scripts/demo.ps1)
 - [Grafana dashboard manifest](dashboards/health-rollout-dashboard.yaml)
 - [Chaos Mesh experiments](chaos/)
 
-## 6. Tech Stack
+## 7. Tech Stack
 
 - **Cluster:** one single-node kind cluster
 - **Controller:** Go, Kubebuilder, controller-runtime, client-go

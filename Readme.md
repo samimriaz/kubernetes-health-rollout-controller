@@ -51,41 +51,35 @@ requests, rollout actions, health signals, and test failures move between them.
 
 ![Runtime architecture showing traffic, rollout control, monitoring, and chaos injection inside one kind cluster](docs/runtime-architecture.svg)
 
-The local client is drawn outside the cluster because manual requests reach the
-ClusterIP Service through `kubectl port-forward`. Automated demo requests come
-from a load-generator pod deployed in `workload`; that test helper is omitted
-from the high-level service diagram. A production deployment would need an
-Ingress, LoadBalancer, or another external entry point, which this project does
-not install. `demo.ps1` also runs outside the cluster and can be closed without
-stopping any deployed service.
-
 ### Reading the diagram
 
-| Area or component | What it is | Responsibility |
+| Component | What it is | Responsibility in the diagram |
 |---|---|---|
-| Application | Inference endpoint and application pods | Receives requests and runs the active application replicas. |
-| Local client | A process on the developer machine | Reaches the ClusterIP Service through `kubectl port-forward` for manual requests. |
-| Demo load generator | Test client pod in `workload`, omitted from the high-level diagram | Continuously sends requests during automated demonstrations. |
-| Inference API | The Kubernetes Service endpoint and its active application pods | Receives inference requests and sends them to ready replicas. The Service routes traffic but does not deploy versions. |
-| Rollout automation | Release-management component | Evaluates health and controls the running application replicas. |
-| Rollout manager | Custom Kubernetes controller running as a pod | Evaluates health and asks the Kubernetes API to deploy or scale releases. It does not process inference requests. |
-| Monitoring | Metrics and dashboard components | Collects health signals and displays rollout behavior. |
-| Prometheus | Metrics database and query service | Scrapes application, GPU, and manager metrics and returns health query results. |
-| Grafana | Dashboard service | Reads Prometheus data and displays traffic, latency, health, and rollback state. |
-| Simulated GPU exporter | Test metrics service | Publishes healthy or degraded GPU-like signals without requiring GPU hardware. |
-| Failure testing | Controlled fault-injection components | Tests how the rollout responds to application failures. |
-| Chaos Mesh | Failure-injection system | Applies pod, network, or CPU faults only to canary pods. |
+| Rollout manager | Custom Kubernetes controller | Reads Prometheus health results and requests rollout, promotion, or rollback changes. |
+| Kubernetes API | Kubernetes control interface | Receives deployment and scaling requests from the rollout manager and applies them to the workload. |
+| Local client | Process on the developer machine | Sends manual `/predict` requests through `kubectl port-forward`. |
+| Inference API | Service endpoint and active application pods | Serves inference requests and exposes application metrics to Prometheus. |
+| Chaos Mesh | Failure-injection system | Injects controlled pod, network, and CPU faults into the test workload. |
+| Prometheus | Metrics database and query service | Collects application and GPU metrics and returns health results to the rollout manager. |
+| Grafana | Dashboard service | Queries Prometheus and displays traffic, latency, health, and rollback state. |
+| GPU exporter | Simulated metrics service | Publishes healthy or degraded GPU signals to Prometheus without requiring GPU hardware. |
+
+## 3. Runtime Architecture
+
+The logical design above is deployed into one local Kubernetes cluster. This
+diagram shows the actual Kubernetes structure: cluster, node, namespaces,
+workload controllers, Services, and the pods they manage.
+
+![Kubernetes topology showing the health-rollout cluster, node, namespaces, Deployments, Services, and pods](docs/kubernetes-topology.svg)
 
 | Scope | Count | Purpose |
 |---|---:|---|
 | Kubernetes clusters | 1 | Local cluster named `health-rollout` |
-| Kubernetes nodes | 1 | kind control-plane node running the full stack |
+| Kubernetes nodes | 1 | `health-rollout-control-plane`, running the full stack |
 | Project namespaces | 4 | `workload`, `rollout-system`, `monitoring`, `chaos-testing` |
 | Rollout managers | 1 | Checks Prometheus health signals and scales Deployments |
 | Inference tracks | 2 | Stable baseline and canary release candidate |
 | Shared inference Service | 1 | Distributes requests across ready stable and canary pods |
-
-The components are deployed into Kubernetes namespaces as follows:
 
 | Functional area | Kubernetes namespace |
 |---|---|
@@ -95,15 +89,13 @@ The components are deployed into Kubernetes namespaces as follows:
 | Failure testing | `chaos-testing` |
 
 The controller runs in `rollout-system`, separate from the application pods in
-`workload`. Monitoring has its own namespace because both the controller and
-Grafana depend on Prometheus. Chaos Mesh is isolated so failure experiments can
-be installed or removed without changing the application or controller
-manifests.
+`workload`. Prometheus and Grafana run in `monitoring`, and Chaos Mesh runs in
+`chaos-testing`. All pods are scheduled on the single kind control-plane node.
 
 The Service does not decide whether stable or canary is deployed. The rollout
-manager controls the Deployments; the Service automatically discovers their
-ready pods and routes traffic to them. Stable and canary coexist only during
-the evaluation period. The intended lifecycle is:
+manager controls the Deployments through the Kubernetes API; the Service
+discovers their ready pods and routes traffic to them. Stable and canary coexist
+only during evaluation:
 
 | State | Stable replicas | Canary replicas | Why |
 |---|---:|---:|---|
@@ -113,26 +105,9 @@ the evaluation period. The intended lifecycle is:
 | Rollback | 1 | 0 | Canary is removed after repeated unhealthy checks. |
 | Successful replacement | New version runs as stable | 0 | The validated version becomes stable and the temporary canary is removed. |
 
-The shared Service is needed only because both tracks coexist during those
-canary steps. If the requirement were to run exactly one version at a time,
-that would be a direct replacement or cutover deployment rather than this
-canary rollout. The current sample marks a healthy rollout promoted at the
-final `1/1` step. The successful replacement shown in the lifecycle is the
-production completion that should follow; that final handoff is not yet
-implemented by this project.
-
-The diagram shows the full project deployment, including Chaos Mesh in the
-`chaos-testing` namespace. The standard `demo.ps1` command installs and
-validates the complete stack.
-
-## 3. Runtime Architecture
-
-The diagram in the previous section is the runtime architecture. The system
-separates workload execution, rollout control, monitoring, and fault
-injection into four namespaces. The controller changes replica counts; it never
-handles application traffic. Prometheus is the boundary between workload health
-and rollout decisions. `demo.ps1` is absent from that diagram because it is only
-an external setup and demonstration command.
+The current sample marks a healthy rollout promoted at the final `1/1` step.
+The successful replacement shown above is the production completion that should
+follow; that final handoff is not yet implemented by this project.
 
 ### 3.1 Traffic and ownership
 

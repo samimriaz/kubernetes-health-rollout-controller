@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
   <title id="title">Runtime architecture of the Kubernetes health rollout controller</title>
-  <desc id="description">A single kind cluster containing workload, rollout-system, monitoring, and optional chaos-testing namespaces.</desc>
+  <desc id="description">A single kind cluster containing application, rollout, monitoring, and failure-testing components.</desc>
   <defs>
     <marker id="blue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2563eb"/></marker>
     <marker id="orange-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#c2410c"/></marker>
@@ -19,74 +19,57 @@
   </defs>
 
   <rect width="1600" height="900" fill="#fff"/>
-  <text x="50" y="48" class="title">One cluster, four responsibilities</text>
-  <text x="50" y="78" class="subtitle">kind cluster: health-rollout | one control-plane node | all arrows show runtime behavior</text>
-  <rect x="30" y="105" width="1540" height="700" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+  <text x="50" y="48" class="title">How the system works</text>
+  <text x="50" y="78" class="subtitle">Request traffic, rollout decisions, health signals, and failure testing</text>
 
-  <rect x="65" y="145" width="620" height="610" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
-  <text x="95" y="182" class="namespace">workload namespace</text>
+  <rect class="box" x="60" y="225" width="250" height="110" stroke="#c2410c"/>
+  <text x="185" y="263" text-anchor="middle" class="node-title">Rollout manager</text>
+  <text x="185" y="291" text-anchor="middle" class="detail">evaluates release health</text>
+  <text x="185" y="317" text-anchor="middle" class="detail">requests rollout or rollback</text>
 
-  <rect class="box" x="100" y="225" width="170" height="80" stroke="#2563eb"/>
-  <text x="185" y="258" text-anchor="middle" class="node-title">Load generator</text>
-  <text x="185" y="282" text-anchor="middle" class="detail">real PNG requests</text>
-  <rect class="box" x="320" y="225" width="180" height="80" stroke="#2563eb"/>
-  <text x="410" y="258" text-anchor="middle" class="node-title">Shared Service</text>
-  <text x="410" y="282" text-anchor="middle" class="detail">traffic entry point</text>
-  <rect class="box" x="535" y="205" width="120" height="210" stroke="#2563eb"/>
-  <text x="595" y="239" text-anchor="middle" class="node-title">Release</text>
-  <rect x="550" y="260" width="90" height="55" rx="6" fill="#ecfdf5" stroke="#16a34a"/>
-  <text x="595" y="293" text-anchor="middle" class="node-title">Stable</text>
-  <rect x="550" y="335" width="90" height="55" rx="6" fill="#fff7ed" stroke="#d97706"/>
-  <text x="595" y="368" text-anchor="middle" class="node-title">Canary</text>
+  <rect class="box" x="390" y="225" width="220" height="110" stroke="#c2410c"/>
+  <text x="500" y="263" text-anchor="middle" class="node-title">Kubernetes API</text>
+  <text x="500" y="291" text-anchor="middle" class="detail">applies deployment</text>
+  <text x="500" y="317" text-anchor="middle" class="detail">and scaling changes</text>
 
-  <path d="M270 265H320" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <path d="M500 265H520V287H550" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <path d="M520 287V362H550" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <text x="295" y="210" text-anchor="middle" class="label" fill="#2563eb">POST /predict</text>
+  <rect class="box" x="710" y="225" width="270" height="110" stroke="#2563eb"/>
+  <text x="845" y="263" text-anchor="middle" class="node-title">Inference API</text>
+  <text x="845" y="291" text-anchor="middle" class="detail">Service endpoint</text>
+  <text x="845" y="317" text-anchor="middle" class="detail">and active application pods</text>
 
-  <rect class="box" x="195" y="545" width="350" height="115" stroke="#c2410c"/>
-  <text x="370" y="580" text-anchor="middle" class="node-title">HealthGatedRollout policy</text>
-  <text x="370" y="607" text-anchor="middle" class="detail">replica steps + PromQL thresholds</text>
-  <text x="370" y="632" text-anchor="middle" class="detail">phase + failure count + rollback status</text>
+  <rect class="box" x="710" y="105" width="270" height="70" stroke="#2563eb"/>
+  <text x="845" y="133" text-anchor="middle" class="node-title">Local client</text>
+  <text x="845" y="157" text-anchor="middle" class="detail">POST /predict via port-forward</text>
 
-  <rect x="750" y="145" width="380" height="265" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
-  <text x="780" y="182" class="namespace">rollout-system namespace</text>
-  <rect class="box" x="810" y="245" width="260" height="105" stroke="#c2410c"/>
-  <text x="940" y="278" text-anchor="middle" class="node-title">Go rollout controller</text>
-  <text x="940" y="305" text-anchor="middle" class="detail">watches policy, queries health</text>
-  <text x="940" y="328" text-anchor="middle" class="detail">and sets replica counts</text>
+  <rect class="box" x="1080" y="225" width="230" height="110" stroke="#dc2626" stroke-dasharray="7 5"/>
+  <text x="1195" y="263" text-anchor="middle" class="node-title">Chaos Mesh</text>
+  <text x="1195" y="291" text-anchor="middle" class="detail">injects controlled faults</text>
+  <text x="1195" y="317" text-anchor="middle" class="detail">into the test workload</text>
 
-  <path d="M810 278H720V310H655" fill="none" stroke="#c2410c" stroke-width="3" marker-end="url(#orange-arrow)"/>
-  <path d="M810 325H715V602H545" fill="none" stroke="#c2410c" stroke-width="3" marker-end="url(#orange-arrow)"/>
+  <path d="M310 280H390" fill="none" stroke="#c2410c" stroke-width="3" marker-end="url(#orange-arrow)"/>
+  <path d="M610 280H710" fill="none" stroke="#c2410c" stroke-width="3" marker-end="url(#orange-arrow)"/>
+  <path d="M845 175V225" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <path d="M1080 280H980" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#red-arrow)"/>
 
-  <rect x="750" y="470" width="780" height="285" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
-  <text x="780" y="507" class="namespace">monitoring namespace</text>
-  <rect class="box" x="795" y="570" width="210" height="90" stroke="#7c3aed"/>
-  <text x="900" y="608" text-anchor="middle" class="node-title">Prometheus</text>
-  <text x="900" y="634" text-anchor="middle" class="detail">scrapes and stores metrics</text>
-  <rect class="box" x="1085" y="545" width="210" height="90" stroke="#7c3aed"/>
-  <text x="1190" y="583" text-anchor="middle" class="node-title">Grafana</text>
-  <text x="1190" y="609" text-anchor="middle" class="detail">queries rollout dashboard data</text>
-  <rect class="box" x="1085" y="660" width="300" height="70" stroke="#7c3aed"/>
-  <text x="1235" y="690" text-anchor="middle" class="node-title">Simulated GPU exporter</text>
-  <text x="1235" y="714" text-anchor="middle" class="detail">temperature + ECC metrics</text>
+  <rect x="390" y="455" width="920" height="285" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="420" y="492" class="namespace">Monitoring</text>
+  <rect class="box" x="440" y="555" width="230" height="90" stroke="#7c3aed"/>
+  <text x="555" y="593" text-anchor="middle" class="node-title">Prometheus</text>
+  <text x="555" y="619" text-anchor="middle" class="detail">stores and evaluates metrics</text>
+  <rect class="box" x="755" y="555" width="220" height="90" stroke="#7c3aed"/>
+  <text x="865" y="593" text-anchor="middle" class="node-title">Grafana</text>
+  <text x="865" y="619" text-anchor="middle" class="detail">displays rollout health</text>
+  <rect class="box" x="1045" y="555" width="230" height="90" stroke="#7c3aed"/>
+  <text x="1160" y="593" text-anchor="middle" class="node-title">GPU exporter</text>
+  <text x="1160" y="619" text-anchor="middle" class="detail">publishes test signals</text>
 
-  <path d="M655 390H710V615H795" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
-  <path d="M1085 695H1045V640H1005" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
-  <path d="M1005 600H1085" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
-  <path d="M900 570V445H940V350" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
-
-  <rect x="1180" y="145" width="350" height="265" rx="12" fill="#fff5f5" stroke="#dc2626" stroke-width="2" stroke-dasharray="9 7"/>
-  <text x="1210" y="182" class="namespace">chaos-testing namespace</text>
-  <text x="1210" y="208" class="detail">optional installation</text>
-  <rect class="box" x="1240" y="265" width="230" height="80" stroke="#dc2626" stroke-dasharray="7 5"/>
-  <text x="1355" y="299" text-anchor="middle" class="node-title">Chaos Mesh</text>
-  <text x="1355" y="324" text-anchor="middle" class="detail">controlled failures</text>
-  <path d="M1240 305H1160V435H675V362H640" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#red-arrow)"/>
-  <text x="1125" y="420" text-anchor="end" class="label" fill="#dc2626">canary faults only</text>
+  <path d="M845 335V430H620V555" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
+  <path d="M1160 645V690H555V645" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
+  <path d="M670 600H755" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
+  <path d="M440 600H350V390H185V335" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#green-arrow)"/>
 
   <line x1="90" y1="850" x2="140" y2="850" stroke="#2563eb" stroke-width="4"/><text x="155" y="856" class="detail">request traffic</text>
   <line x1="355" y1="850" x2="405" y2="850" stroke="#c2410c" stroke-width="4"/><text x="420" y="856" class="detail">controller actions</text>
   <line x1="670" y1="850" x2="720" y2="850" stroke="#15803d" stroke-width="4"/><text x="735" y="856" class="detail">metrics and health results</text>
-  <line x1="1070" y1="850" x2="1120" y2="850" stroke="#dc2626" stroke-width="4" stroke-dasharray="9 7"/><text x="1135" y="856" class="detail">optional failure injection</text>
+  <line x1="1070" y1="850" x2="1120" y2="850" stroke="#dc2626" stroke-width="4" stroke-dasharray="9 7"/><text x="1135" y="856" class="detail">failure injection</text>
 </svg>

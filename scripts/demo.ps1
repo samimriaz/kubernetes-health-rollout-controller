@@ -1,8 +1,3 @@
-[CmdletBinding()]
-param(
-    [switch]$InstallChaos
-)
-
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
@@ -77,21 +72,19 @@ kubectl rollout restart deployment/rollout-controller-manager -n rollout-system
 kubectl rollout status deployment/rollout-controller-manager -n rollout-system --timeout=3m
 kubectl apply -f .\dashboards\health-rollout-dashboard.yaml
 
-if ($InstallChaos) {
-    Write-Step "Installing Chaos Mesh and validating canary experiments"
-    helm repo add chaos-mesh https://charts.chaos-mesh.org --force-update
-    helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh `
-        --version $chaosMeshVersion `
-        --namespace chaos-testing `
-        --create-namespace `
-        --set dashboard.create=false `
-        --set controllerManager.replicaCount=1 `
-        --set chaosDaemon.runtime=containerd `
-        --set chaosDaemon.socketPath=/run/containerd/containerd.sock `
-        --wait `
-        --timeout 5m
-    kubectl apply -k .\chaos --dry-run=server
-}
+Write-Step "Installing Chaos Mesh and validating canary experiments"
+helm repo add chaos-mesh https://charts.chaos-mesh.org --force-update
+helm upgrade --install chaos-mesh chaos-mesh/chaos-mesh `
+    --version $chaosMeshVersion `
+    --namespace chaos-testing `
+    --create-namespace `
+    --set dashboard.create=false `
+    --set controllerManager.replicaCount=1 `
+    --set chaosDaemon.runtime=containerd `
+    --set chaosDaemon.socketPath=/run/containerd/containerd.sock `
+    --wait `
+    --timeout 5m
+kubectl apply -k .\chaos --dry-run=server
 
 Write-Step "Triggering a simulated GPU health rollback"
 kubectl delete healthgatedrollout inference-rollout gpu-health-rollout -n workload --ignore-not-found=true

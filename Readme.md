@@ -44,12 +44,10 @@ flowchart LR
 - Make the complete rollout, monitoring, failure-testing, and rollback process
   reproducible on a local machine.
 
-## 2. Deployment Architecture
+## 2. Architecture Design
 
-The project runs in **one Kubernetes cluster**, named `health-rollout`. It is a
-local `kind` cluster with **one control-plane node**. Docker Desktop hosts the
-kind node container, and containerd inside that node runs the Kubernetes pods.
-There are no cloud clusters or external runtime services.
+All components run in one local Kubernetes cluster. The diagram below shows how
+requests, rollout actions, health signals, and test failures move between them.
 
 ![Runtime architecture showing traffic, rollout control, monitoring, and chaos injection inside one kind cluster](docs/runtime-architecture.svg)
 
@@ -285,7 +283,23 @@ simulated GPU view are in [docs/results/README.md](docs/results/README.md).
 
 ![Test result showing the canary rollback and stable recovery](docs/results/grafana-rollout-overview.png)
 
-## 4. Quick Start
+## 4. System Setup
+
+Set up the system in this order:
+
+1. Create the local `health-rollout` Kubernetes cluster with `kind`.
+2. Create the namespaces used by the application and monitoring services.
+3. Install Prometheus and Grafana for health checks and dashboards.
+4. Build the inference API, load generator, GPU exporter, and rollout manager
+  container images, then load them into the cluster.
+5. Deploy the inference API, stable and canary workloads, load generator, and
+  metrics exporters.
+6. Deploy the rollout manager and connect it to the Kubernetes API and
+  Prometheus.
+7. Install Chaos Mesh and validate the failure experiments.
+8. Start the rollout and observe whether it is promoted or rolled back.
+
+## 5. Quick Start
 
 Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The
 demo does not require a GPU.
@@ -313,9 +327,9 @@ The script stops if a required command fails and can be rerun against the named
 cluster. It exits after the rollout reports `RolledBack`. See
 [the captured results](docs/results/README.md).
 
-## 5. Components
+## 6. Components
 
-### 5.1 Rollout controller
+### 6.1 Rollout controller
 
 The Go controller in [`controller/`](controller/) was built with Kubebuilder. It
 watches `HealthGatedRollout` resources, scales the stable and canary Deployments,
@@ -348,7 +362,7 @@ requires at least five canary requests, and rolls back after two consecutive
 unhealthy evaluations. Missing data causes a hold rather than a promotion or
 rollback.
 
-### 5.2 Inference service and traffic
+### 6.2 Inference service and traffic
 
 [`inference-service/`](inference-service/) is a FastAPI application running
 MobileNet through ONNX Runtime. Stable and canary are separate Deployments with
@@ -361,14 +375,14 @@ Both expose request counters and latency histograms labeled by track, and both
 include startup, readiness, and liveness probes plus restricted security
 contexts.
 
-### 5.3 Load generator
+### 6.3 Load generator
 
 [`load-generator/`](load-generator/) contains a dependency-free Python process
 that creates a PNG in memory and continuously uploads it to `POST /predict`.
 `TARGET_URL`, `REQUESTS_PER_SECOND`, and `REQUEST_TIMEOUT_SECONDS` configure the
 traffic without rebuilding the image.
 
-### 5.4 Simulated GPU telemetry
+### 6.4 Simulated GPU telemetry
 
 [`gpu-metrics/`](gpu-metrics/) exposes clearly named `simulated_gpu_*` metrics.
 Healthy mode reports 58 C and zero ECC errors; degraded mode reports 96 C and
@@ -376,35 +390,35 @@ eight ECC errors. These are test signals, not hardware measurements or DCGM
 metrics. The controller evaluates them through the same configurable PromQL
 check mechanism used for application signals.
 
-### 5.5 Monitoring and dashboard
+### 6.5 Monitoring and dashboard
 
 The Helm-installed kube-prometheus-stack runs in `monitoring`. ServiceMonitors
 discover the inference service, GPU exporter, and controller. The checked-in
 Grafana dashboard shows replica state, request rate, error rate, p95 latency,
 rollback count, and simulated GPU health.
 
-### 5.6 Failure injection
+### 6.6 Failure injection
 
 [`chaos/`](chaos/) contains scoped Chaos Mesh experiments for canary pod
 termination, 250 ms outbound network delay, and one CPU stress worker at 80%
 load. Every selector requires both `app: inference-service` and `track: canary`,
 so the stable Deployment is not targeted.
 
-### 5.7 Demo automation
+### 6.7 Demo automation
 
 [`scripts/demo.ps1`](scripts/demo.ps1) creates or reuses the cluster, installs
 monitoring and pinned Chaos Mesh 2.8.0, builds and loads the local images,
 deploys the complete system, validates the experiment manifests, switches the
 simulated GPU exporter to degraded mode, and waits for a confirmed rollback.
 
-## 6. Evidence
+## 7. Evidence
 
 - [Runtime results and screenshots](docs/results/README.md)
 - [One-command demo](scripts/demo.ps1)
 - [Grafana dashboard manifest](dashboards/health-rollout-dashboard.yaml)
 - [Chaos Mesh experiments](chaos/)
 
-## 7. Tech Stack
+## 8. Tech Stack
 
 - **Cluster:** one single-node kind cluster
 - **Controller:** Go, Kubebuilder, controller-runtime, client-go

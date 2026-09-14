@@ -32,20 +32,17 @@ flowchart LR
 4. **Roll back to stable:** Remove the candidate and keep the known-good release
   serving traffic after repeated unhealthy evaluations.
 
-## 1. Goals
+## 1. Project Goals
 
-- Release a new inference-service configuration gradually while the known-good
-  configuration continues serving traffic.
-- Use real request volume, HTTP errors, and latency from a MobileNet/ONNX
-  workload to decide whether a release can continue.
-- Support additional Prometheus health checks, demonstrated with explicitly
-  simulated GPU temperature and ECC error metrics.
-- Roll back automatically only after repeated threshold failures, while holding
-  safely when Prometheus is unavailable or there is not enough traffic.
-- Make the complete deploy, observe, and rollback path reproducible on a local
-  machine with one command.
-- Show rollout state, application health, GPU signals, and rollback events in
-  Grafana, with Chaos Mesh experiments for controlled failure testing.
+- Release a new version gradually without interrupting the stable application.
+- Decide whether to continue or stop a rollout using measured application and
+  GPU health.
+- Return traffic to the stable version automatically when the new version is
+  repeatedly unhealthy.
+- Keep the rollout safe when health data is unavailable or there is not enough
+  traffic to make a reliable decision.
+- Make the complete rollout, monitoring, failure-testing, and rollback process
+  reproducible on a local machine.
 
 ## 2. Deployment Architecture
 

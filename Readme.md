@@ -165,6 +165,18 @@ to a degraded profile (`96 C`, `8` ECC errors). The GPU rollout deliberately
 sets permissive application thresholds so the recorded rollback can be
 attributed specifically to the two GPU checks.
 
+The demo changes these signals without altering Prometheus data directly:
+
+1. `demo.ps1` sets `SIMULATED_GPU_MODE=degraded` on the GPU exporter Deployment.
+2. Kubernetes replaces the exporter pod, which then publishes `96 C` and `8`
+  ECC errors at its `/metrics` endpoint instead of the healthy values.
+3. Prometheus scrapes and stores those degraded values through its normal
+  monitoring path.
+4. The rollout manager queries Prometheus and compares the results with the GPU
+  rollout limits: `85 C` and one ECC error.
+5. After two consecutive failed evaluations, the manager scales stable to one
+  replica, scales canary to zero, and marks the rollout `RolledBack`.
+
 ### 3.3 Automated demo sequence
 
 This sequence shows what the external `demo.ps1` helper does to start and

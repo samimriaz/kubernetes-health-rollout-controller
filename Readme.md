@@ -72,6 +72,22 @@ workload controllers, Services, and the pods they manage.
 
 ![Kubernetes topology showing the health-rollout cluster, node, namespaces, Deployments, Services, and pods](docs/kubernetes-topology.svg)
 
+### Kubernetes objects in the diagram
+
+| Object | Plain-language meaning | What it does not do |
+|---|---|---|
+| **Pod** | The running application instance containing one or more containers. | It does not maintain or replace itself. |
+| **Deployment** | A manager for a group of pods. It specifies the container image and desired replica count, then creates and replaces pods as needed. | It does not provide a stable network address. |
+| **Service** | A stable network address that finds matching ready pods and sends requests to them. | It does not create pods or decide which version to deploy. |
+| **Custom resource** | A project-specific settings record stored in Kubernetes. Here, `HealthGatedRollout` contains rollout steps and health limits. | It is not a pod, server, or running program. |
+
+The rollout manager reads the `HealthGatedRollout` custom resource and updates
+the stable and canary Deployments. Those Deployments create the pods, and the
+`inference-service` Service routes requests to the ready pods.
+
+The monitoring and Chaos Mesh sections also use **StatefulSets** for pods that
+need stable identity and **DaemonSets** for one pod on every node.
+
 | Scope | Count | Purpose |
 |---|---:|---|
 | Kubernetes clusters | 1 | Local cluster named `health-rollout` |

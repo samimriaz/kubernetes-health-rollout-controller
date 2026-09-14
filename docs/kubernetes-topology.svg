@@ -1,109 +1,106 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="950" viewBox="0 0 1600 950" role="img" aria-labelledby="title description">
   <title id="title">Kubernetes deployment topology</title>
-  <desc id="description">The health-rollout kind cluster, its single control-plane node, four namespaces, workload controllers, services, and pods.</desc>
+  <desc id="description">The health-rollout cluster showing how Deployments create pods, the Service routes traffic, and supporting rollout, monitoring, and failure-testing workloads run.</desc>
   <defs>
+    <marker id="black-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker>
+    <marker id="blue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2563eb"/></marker>
     <style>
       text { font-family: 'Segoe UI', sans-serif; fill: #172033; }
       .title { font-size: 30px; font-weight: 700; }
-      .subtitle { font-size: 17px; fill: #526274; }
-      .cluster-title { font-size: 22px; font-weight: 700; }
-      .namespace-title { font-size: 19px; font-weight: 700; }
-      .resource-title { font-size: 16px; font-weight: 700; }
+      .heading { font-size: 21px; font-weight: 700; }
+      .name { font-size: 17px; font-weight: 700; }
       .detail { font-size: 14px; fill: #526274; }
       .cluster { fill: #f8fafc; stroke: #475569; stroke-width: 2; }
-      .node { fill: #fff; stroke: #64748b; stroke-width: 2; }
-      .namespace { stroke-width: 2; }
-      .resource { fill: #fff; stroke-width: 1.5; }
+      .node { fill: #fff; stroke: #94a3b8; stroke-width: 2; }
+      .group { stroke-width: 2; }
+      .box { fill: #fff; stroke: #64748b; stroke-width: 1.5; }
+      .pod { fill: #ecfdf5; stroke: #16a34a; stroke-width: 1.5; }
+      .canary { fill: #fff7ed; stroke: #d97706; stroke-width: 1.5; }
     </style>
   </defs>
 
-  <rect width="1600" height="1050" fill="#fff"/>
-  <text x="45" y="45" class="title">Kubernetes deployment topology</text>
-  <text x="45" y="75" class="subtitle">Runtime resources deployed by this project</text>
+  <rect width="1600" height="950" fill="#fff"/>
+  <text x="40" y="45" class="title">How this project is deployed in Kubernetes</text>
+  <text x="40" y="75" class="detail">Arrows explain ownership and traffic routing; boxes show the resources that remain running.</text>
 
-  <rect x="35" y="100" width="1530" height="900" rx="12" class="cluster"/>
-  <text x="60" y="135" class="cluster-title">kind cluster: health-rollout</text>
+  <rect x="35" y="100" width="1530" height="810" rx="12" class="cluster"/>
+  <text x="60" y="135" class="heading">Cluster: health-rollout</text>
+  <rect x="65" y="155" width="1470" height="720" rx="10" class="node"/>
+  <text x="90" y="190" class="heading">Node: health-rollout-control-plane</text>
 
-  <rect x="65" y="160" width="1470" height="805" rx="10" class="node"/>
-  <text x="90" y="195" class="cluster-title">Node: health-rollout-control-plane</text>
-  <text x="90" y="220" class="detail">Single node: all project pods are scheduled here</text>
+  <rect x="95" y="220" width="920" height="370" rx="10" fill="#f0fdf4" stroke="#16a34a" class="group"/>
+  <text x="120" y="255" class="heading">workload</text>
 
-  <rect x="95" y="250" width="680" height="315" rx="10" fill="#f0fdf4" stroke="#16a34a" class="namespace"/>
-  <text x="120" y="283" class="namespace-title">Namespace: workload</text>
-  <rect x="120" y="310" width="195" height="90" rx="7" stroke="#2563eb" class="resource"/>
-  <text x="217" y="340" text-anchor="middle" class="resource-title">Service</text>
-  <text x="217" y="364" text-anchor="middle" class="detail">inference-service</text>
-  <text x="217" y="386" text-anchor="middle" class="detail">routes to ready pods</text>
-  <rect x="350" y="310" width="190" height="105" rx="7" stroke="#16a34a" class="resource"/>
-  <text x="445" y="338" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="445" y="362" text-anchor="middle" class="detail">inference-stable</text>
-  <text x="445" y="386" text-anchor="middle" class="detail">ReplicaSet → pod(s)</text>
-  <rect x="560" y="310" width="190" height="105" rx="7" stroke="#d97706" class="resource"/>
-  <text x="655" y="338" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="655" y="362" text-anchor="middle" class="detail">inference-canary</text>
-  <text x="655" y="386" text-anchor="middle" class="detail">ReplicaSet → pod(s)</text>
-  <rect x="350" y="440" width="190" height="90" rx="7" stroke="#2563eb" class="resource"/>
-  <text x="445" y="470" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="445" y="494" text-anchor="middle" class="detail">load-generator</text>
-  <text x="445" y="516" text-anchor="middle" class="detail">ReplicaSet → pod</text>
-  <rect x="560" y="440" width="190" height="90" rx="7" stroke="#c2410c" class="resource"/>
-  <text x="655" y="470" text-anchor="middle" class="resource-title">Rollout settings</text>
-  <text x="655" y="494" text-anchor="middle" class="detail">HealthGatedRollout</text>
-  <text x="655" y="516" text-anchor="middle" class="detail">custom resource (data)</text>
+  <rect x="125" y="300" width="185" height="75" rx="7" class="box"/>
+  <text x="217" y="330" text-anchor="middle" class="name">Load generator</text>
+  <text x="217" y="354" text-anchor="middle" class="detail">pod sends requests</text>
 
-  <rect x="805" y="250" width="700" height="315" rx="10" fill="#f5f3ff" stroke="#7c3aed" class="namespace"/>
-  <text x="830" y="283" class="namespace-title">Namespace: monitoring</text>
-  <rect x="830" y="310" width="200" height="105" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="930" y="338" text-anchor="middle" class="resource-title">StatefulSet</text>
-  <text x="930" y="362" text-anchor="middle" class="detail">Prometheus</text>
-  <text x="930" y="386" text-anchor="middle" class="detail">pod + Service</text>
-  <rect x="1055" y="310" width="200" height="105" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="1155" y="338" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="1155" y="362" text-anchor="middle" class="detail">monitoring-grafana</text>
-  <text x="1155" y="386" text-anchor="middle" class="detail">pod + Service</text>
-  <rect x="1280" y="310" width="200" height="105" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="1380" y="338" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="1380" y="362" text-anchor="middle" class="detail">GPU exporter</text>
-  <text x="1380" y="386" text-anchor="middle" class="detail">pod + Service</text>
-  <rect x="830" y="440" width="200" height="90" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="930" y="470" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="930" y="494" text-anchor="middle" class="detail">Prometheus operator</text>
-  <text x="930" y="516" text-anchor="middle" class="detail">pod</text>
-  <rect x="1055" y="440" width="200" height="90" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="1155" y="470" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="1155" y="494" text-anchor="middle" class="detail">kube-state-metrics</text>
-  <text x="1155" y="516" text-anchor="middle" class="detail">pod + Service</text>
-  <rect x="1280" y="440" width="200" height="90" rx="7" stroke="#7c3aed" class="resource"/>
-  <text x="1380" y="470" text-anchor="middle" class="resource-title">DaemonSet</text>
-  <text x="1380" y="494" text-anchor="middle" class="detail">node-exporter</text>
-  <text x="1380" y="516" text-anchor="middle" class="detail">one pod on this node</text>
+  <rect x="360" y="300" width="185" height="75" rx="7" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="452" y="330" text-anchor="middle" class="name">Service</text>
+  <text x="452" y="354" text-anchor="middle" class="detail">inference-service</text>
 
-  <rect x="95" y="595" width="680" height="315" rx="10" fill="#fff7ed" stroke="#ea580c" class="namespace"/>
-  <text x="120" y="628" class="namespace-title">Namespace: rollout-system</text>
-  <rect x="145" y="675" width="260" height="110" rx="7" stroke="#c2410c" class="resource"/>
-  <text x="275" y="707" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="275" y="733" text-anchor="middle" class="detail">rollout-controller-manager</text>
-  <text x="275" y="757" text-anchor="middle" class="detail">ReplicaSet → manager pod</text>
-  <rect x="465" y="675" width="260" height="110" rx="7" stroke="#c2410c" class="resource"/>
-  <text x="595" y="707" text-anchor="middle" class="resource-title">Service</text>
-  <text x="595" y="733" text-anchor="middle" class="detail">controller-manager metrics</text>
-  <text x="595" y="757" text-anchor="middle" class="detail">exposes controller metrics</text>
+  <path d="M310 337H360" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <text x="335" y="320" text-anchor="middle" class="detail">traffic</text>
 
-  <rect x="805" y="595" width="700" height="315" rx="10" fill="#fff5f5" stroke="#dc2626" class="namespace"/>
-  <text x="830" y="628" class="namespace-title">Namespace: chaos-testing</text>
-  <rect x="830" y="675" width="200" height="110" rx="7" stroke="#dc2626" class="resource"/>
-  <text x="930" y="707" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="930" y="733" text-anchor="middle" class="detail">chaos-controller-manager</text>
-  <text x="930" y="757" text-anchor="middle" class="detail">ReplicaSet → pod</text>
-  <rect x="1055" y="675" width="200" height="110" rx="7" stroke="#dc2626" class="resource"/>
-  <text x="1155" y="707" text-anchor="middle" class="resource-title">DaemonSet</text>
-  <text x="1155" y="733" text-anchor="middle" class="detail">chaos-daemon</text>
-  <text x="1155" y="757" text-anchor="middle" class="detail">one pod on this node</text>
-  <rect x="1280" y="675" width="200" height="110" rx="7" stroke="#dc2626" class="resource"/>
-  <text x="1380" y="707" text-anchor="middle" class="resource-title">Deployment</text>
-  <text x="1380" y="733" text-anchor="middle" class="detail">chaos-dns-server</text>
-  <text x="1380" y="757" text-anchor="middle" class="detail">ReplicaSet → pod</text>
-  <text x="830" y="840" class="detail">Services expose the controller manager, daemon, and DNS server inside the cluster.</text>
+  <rect x="600" y="280" width="180" height="75" rx="7" class="box"/>
+  <text x="690" y="310" text-anchor="middle" class="name">Stable Deployment</text>
+  <text x="690" y="334" text-anchor="middle" class="detail">desired replicas</text>
+  <rect x="825" y="280" width="155" height="75" rx="7" class="box"/>
+  <text x="902" y="310" text-anchor="middle" class="name">Canary Deployment</text>
+  <text x="902" y="334" text-anchor="middle" class="detail">desired replicas</text>
 
-  <text x="95" y="945" class="detail">Deployment → ReplicaSet → pod(s). StatefulSet and DaemonSet create their pods directly through their controllers.</text>
+  <rect x="600" y="430" width="180" height="75" rx="7" class="pod"/>
+  <text x="690" y="460" text-anchor="middle" class="name">Stable pods</text>
+  <text x="690" y="484" text-anchor="middle" class="detail">running app</text>
+  <rect x="825" y="430" width="155" height="75" rx="7" class="canary"/>
+  <text x="902" y="460" text-anchor="middle" class="name">Canary pods</text>
+  <text x="902" y="484" text-anchor="middle" class="detail">candidate app</text>
+
+  <path d="M630 355V430" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
+  <path d="M855 355V430" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
+  <text x="638" y="395" class="detail">creates</text>
+  <text x="863" y="395" class="detail">creates</text>
+
+  <path d="M545 337H570V410H730V430" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <path d="M570 390H930V430" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <text x="570" y="375" class="detail">routes to ready pods</text>
+
+  <rect x="125" y="500" width="420" height="60" rx="7" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="335" y="525" text-anchor="middle" class="name">Rollout settings: HealthGatedRollout</text>
+  <text x="335" y="548" text-anchor="middle" class="detail">stored configuration; not a running pod</text>
+
+  <rect x="1045" y="220" width="450" height="170" rx="10" fill="#fff7ed" stroke="#ea580c" class="group"/>
+  <text x="1070" y="255" class="heading">rollout-system</text>
+  <rect x="1090" y="285" width="360" height="75" rx="7" class="box"/>
+  <text x="1270" y="315" text-anchor="middle" class="name">Rollout manager Deployment</text>
+  <text x="1270" y="339" text-anchor="middle" class="detail">creates one manager pod</text>
+
+  <rect x="95" y="620" width="920" height="220" rx="10" fill="#f5f3ff" stroke="#7c3aed" class="group"/>
+  <text x="120" y="655" class="heading">monitoring</text>
+  <rect x="125" y="690" width="250" height="95" rx="7" class="box"/>
+  <text x="250" y="720" text-anchor="middle" class="name">Prometheus StatefulSet</text>
+  <text x="250" y="744" text-anchor="middle" class="detail">creates Prometheus pod</text>
+  <text x="250" y="766" text-anchor="middle" class="detail">stores health metrics</text>
+  <rect x="430" y="690" width="250" height="95" rx="7" class="box"/>
+  <text x="555" y="720" text-anchor="middle" class="name">Grafana Deployment</text>
+  <text x="555" y="744" text-anchor="middle" class="detail">creates Grafana pod</text>
+  <text x="555" y="766" text-anchor="middle" class="detail">shows dashboards</text>
+  <rect x="735" y="690" width="250" height="95" rx="7" class="box"/>
+  <text x="860" y="720" text-anchor="middle" class="name">GPU exporter Deployment</text>
+  <text x="860" y="744" text-anchor="middle" class="detail">creates exporter pod</text>
+  <text x="860" y="766" text-anchor="middle" class="detail">publishes test metrics</text>
+
+  <rect x="1045" y="420" width="450" height="260" rx="10" fill="#fff5f5" stroke="#dc2626" class="group"/>
+  <text x="1070" y="455" class="heading">chaos-testing</text>
+  <rect x="1090" y="485" width="360" height="70" rx="7" class="box"/>
+  <text x="1270" y="513" text-anchor="middle" class="name">Chaos controller Deployment</text>
+  <text x="1270" y="537" text-anchor="middle" class="detail">creates controller pod</text>
+  <rect x="1090" y="580" width="360" height="70" rx="7" class="box"/>
+  <text x="1270" y="608" text-anchor="middle" class="name">Chaos DaemonSet</text>
+  <text x="1270" y="632" text-anchor="middle" class="detail">creates one daemon pod on this node</text>
+
+  <text x="1080" y="735" class="name">How to read this diagram</text>
+  <text x="1080" y="765" class="detail">Deployment / StatefulSet / DaemonSet → creates pods</text>
+  <text x="1080" y="792" class="detail">Service → sends traffic to matching ready pods</text>
+  <text x="1080" y="819" class="detail">Custom resource → stores settings only</text>
 </svg>

@@ -23,8 +23,10 @@ access or GPU hardware.
 Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The
 default demo does not require a GPU.
 
-`demo.ps1` is an automation script, not a Kubernetes component. Running it is
-equivalent to executing all setup and demonstration commands manually. It:
+`demo.ps1` is **not the project, a container, or part of the running
+architecture**. It is a PowerShell helper that prepares the local environment
+and runs one complete demonstration. It is equivalent to executing all setup
+and demonstration commands manually. It:
 
 1. Creates or reuses the local `health-rollout` kind cluster.
 2. Installs Prometheus and Grafana with Helm.
@@ -77,11 +79,11 @@ local `kind` cluster with **one control-plane node**. Docker Desktop hosts the
 kind node container, and containerd inside that node runs the Kubernetes pods.
 There are no cloud clusters or external runtime services.
 
-![Deployment architecture showing the single kind cluster and four namespaces](docs/deployment-architecture.png)
+![Runtime architecture showing traffic, rollout control, monitoring, and optional chaos injection inside one kind cluster](docs/runtime-architecture.svg)
 
-The image source is checked in as
-[`docs/deployment-architecture.mmd`](docs/deployment-architecture.mmd), so the
-diagram can be updated and rendered again when the deployment changes.
+Only the four namespace boxes are running Kubernetes components. `demo.ps1`
+runs outside the cluster, finishes after the rollback demonstration, and can be
+closed without stopping any deployed service.
 
 | Scope | Count | Purpose |
 |---|---:|---|
@@ -105,48 +107,12 @@ namespace and its three Chaos Mesh components.
 
 ## 3. Runtime Architecture
 
-The system separates workload execution, rollout control, monitoring, and fault
+The diagram in the previous section is the runtime architecture. The system
+separates workload execution, rollout control, monitoring, and optional fault
 injection into four namespaces. The controller changes replica counts; it never
 handles application traffic. Prometheus is the boundary between workload health
-and rollout decisions.
-
-```mermaid
-flowchart LR
-    Demo[demo.ps1] -->|creates and configures| API[Kubernetes API]
-
-    subgraph Workload[workload namespace]
-        Load[Load generator] -->|POST /predict| Service[Shared inference Service]
-        Service -->|common app selector| Stable[Stable Deployment<br/>track=stable<br/>good resource profile]
-        Service -->|common app selector| Canary[Canary Deployment<br/>track=canary<br/>constrained profile]
-        Stable -->|request and latency metrics| Monitor[Inference ServiceMonitor]
-        Canary -->|request and latency metrics| Monitor
-    end
-
-    subgraph Rollout[rollout-system namespace]
-        CR[HealthGatedRollout CR]
-        Controller[Go rollout controller]
-        CR -->|watch and status updates| Controller
-        Controller -->|scale replicas| Stable
-        Controller -->|scale replicas| Canary
-    end
-
-    subgraph Monitoring[monitoring namespace]
-        Prometheus[Prometheus]
-        GPU[Simulated GPU exporter<br/>simulated_gpu_*]
-        Grafana[Grafana dashboard]
-        Monitor -->|scrape discovery| Prometheus
-        GPU -->|58 C / 0 ECC healthy<br/>96 C / 8 ECC degraded| Prometheus
-        Prometheus -->|dashboard queries| Grafana
-    end
-
-    Controller -->|configurable PromQL| Prometheus
-    Controller -->|rollback counter| Prometheus
-
-    subgraph Chaos[chaos-testing namespace]
-        ChaosMesh[Chaos Mesh<br/>pod kill / delay / CPU stress]
-    end
-    ChaosMesh -.->|canary label selector only| Canary
-```
+and rollout decisions. `demo.ps1` is absent from that diagram because it is only
+an external setup and demonstration command.
 
 ### 3.1 Traffic and ownership
 
@@ -188,7 +154,11 @@ to a degraded profile (`96 C`, `8` ECC errors). The GPU rollout deliberately
 sets permissive application thresholds so the recorded rollback can be
 attributed specifically to the two GPU checks.
 
-### 3.3 Deployment sequence
+### 3.3 Automated demo sequence
+
+This sequence shows what the external `demo.ps1` helper does to start and
+exercise the system. The script is included here as an actor because this is an
+automation timeline, not a diagram of components that remain running.
 
 ```mermaid
 sequenceDiagram

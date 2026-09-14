@@ -32,8 +32,6 @@ flowchart LR
 4. **Roll back to stable:** Remove the candidate and keep the known-good release
   serving traffic after repeated unhealthy evaluations.
 
-![Verified health-gated rollout dashboard](docs/results/grafana-rollout-overview.png)
-
 ## Quick Start
 
 Prerequisites: Docker Desktop, `kind`, `kubectl`, Helm, and PowerShell 7. The

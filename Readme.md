@@ -32,8 +32,6 @@ flowchart LR
 4. **Roll back to stable:** Remove the candidate and keep the known-good release
   serving traffic after repeated unhealthy evaluations.
 
-![Verified health-gated rollout dashboard](docs/results/grafana-rollout-overview.png)
-
 ## 1. Goals
 
 - Release a new inference-service configuration gradually while the known-good
@@ -282,11 +280,13 @@ restores `inference-stable` to one replica, scales `inference-canary` to zero,
 sets `status.phase` to `RolledBack`, emits a `RolloutRolledBack` Event, increments
 `health_gated_rollout_rollbacks_total`, and starts a five-minute cooldown.
 
-The verified dashboard below shows the replica transitions, real request rate,
-p95 latency, and rollback count. The complete captured results and simulated GPU
-view are in [docs/results/README.md](docs/results/README.md).
+**Test result: automatic rollback confirmed.** The dashboard shows the canary
+scaling to zero, stable returning to one replica, and the rollback counter
+incrementing after the unhealthy evaluations. It also shows the request rate
+and p95 latency used during the test. The complete captured results and
+simulated GPU view are in [docs/results/README.md](docs/results/README.md).
 
-![Verified rollout and automatic rollback](docs/results/grafana-rollout-overview.png)
+![Test result showing the canary rollback and stable recovery](docs/results/grafana-rollout-overview.png)
 
 ## 4. Quick Start
 

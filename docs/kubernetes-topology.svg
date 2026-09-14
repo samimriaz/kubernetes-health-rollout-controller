@@ -31,43 +31,42 @@
   <rect x="95" y="220" width="920" height="370" rx="10" fill="#f0fdf4" stroke="#16a34a" class="group"/>
   <text x="120" y="255" class="heading">workload</text>
 
-  <rect x="125" y="300" width="185" height="75" rx="7" class="box"/>
-  <text x="217" y="330" text-anchor="middle" class="name">Load generator</text>
-  <text x="217" y="354" text-anchor="middle" class="detail">pod sends requests</text>
+  <rect x="125" y="275" width="180" height="65" rx="7" class="box"/>
+  <text x="215" y="302" text-anchor="middle" class="name">Load generator</text>
+  <text x="215" y="325" text-anchor="middle" class="detail">pod sends requests</text>
 
-  <rect x="360" y="300" width="185" height="75" rx="7" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="452" y="330" text-anchor="middle" class="name">Service</text>
-  <text x="452" y="354" text-anchor="middle" class="detail">inference-service</text>
+  <rect x="360" y="275" width="180" height="65" rx="7" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="450" y="302" text-anchor="middle" class="name">Service</text>
+  <text x="450" y="325" text-anchor="middle" class="detail">inference-service</text>
 
-  <path d="M310 337H360" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <text x="335" y="320" text-anchor="middle" class="detail">traffic</text>
+  <path d="M305 307H360" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <text x="332" y="292" text-anchor="middle" class="detail">traffic</text>
 
-  <rect x="600" y="280" width="180" height="75" rx="7" class="box"/>
-  <text x="690" y="310" text-anchor="middle" class="name">Stable Deployment</text>
-  <text x="690" y="334" text-anchor="middle" class="detail">desired replicas</text>
-  <rect x="825" y="280" width="155" height="75" rx="7" class="box"/>
-  <text x="902" y="310" text-anchor="middle" class="name">Canary Deployment</text>
-  <text x="902" y="334" text-anchor="middle" class="detail">desired replicas</text>
+  <rect x="620" y="275" width="160" height="65" rx="7" class="pod"/>
+  <text x="700" y="302" text-anchor="middle" class="name">Stable pods</text>
+  <text x="700" y="325" text-anchor="middle" class="detail">running app</text>
+  <rect x="620" y="395" width="160" height="65" rx="7" class="canary"/>
+  <text x="700" y="422" text-anchor="middle" class="name">Canary pods</text>
+  <text x="700" y="445" text-anchor="middle" class="detail">candidate app</text>
 
-  <rect x="600" y="430" width="180" height="75" rx="7" class="pod"/>
-  <text x="690" y="460" text-anchor="middle" class="name">Stable pods</text>
-  <text x="690" y="484" text-anchor="middle" class="detail">running app</text>
-  <rect x="825" y="430" width="155" height="75" rx="7" class="canary"/>
-  <text x="902" y="460" text-anchor="middle" class="name">Canary pods</text>
-  <text x="902" y="484" text-anchor="middle" class="detail">candidate app</text>
+  <path d="M540 307H620" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <path d="M565 307V427H620" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
+  <text x="575" y="375" class="detail">routes to ready pods</text>
 
-  <path d="M630 355V430" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
-  <path d="M855 355V430" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
-  <text x="638" y="395" class="detail">creates</text>
-  <text x="863" y="395" class="detail">creates</text>
+  <rect x="825" y="275" width="160" height="65" rx="7" class="box"/>
+  <text x="905" y="302" text-anchor="middle" class="name">Stable Deployment</text>
+  <text x="905" y="325" text-anchor="middle" class="detail">desired replicas</text>
+  <rect x="825" y="395" width="160" height="65" rx="7" class="box"/>
+  <text x="905" y="422" text-anchor="middle" class="name">Canary Deployment</text>
+  <text x="905" y="445" text-anchor="middle" class="detail">desired replicas</text>
 
-  <path d="M545 337H570V410H730V430" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <path d="M570 390H930V430" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#blue-arrow)"/>
-  <text x="570" y="375" class="detail">routes to ready pods</text>
+  <path d="M825 307H780" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
+  <path d="M825 427H780" fill="none" stroke="#475569" stroke-width="2.5" marker-end="url(#black-arrow)"/>
+  <text x="802" y="292" text-anchor="middle" class="detail">creates</text>
+  <text x="802" y="412" text-anchor="middle" class="detail">creates</text>
 
-  <rect x="125" y="500" width="420" height="60" rx="7" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
-  <text x="335" y="525" text-anchor="middle" class="name">Rollout settings: HealthGatedRollout</text>
-  <text x="335" y="548" text-anchor="middle" class="detail">stored configuration; not a running pod</text>
+  <rect x="125" y="550" width="855" height="25" rx="7" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="552" y="568" text-anchor="middle" class="detail"><tspan font-weight="700">Rollout settings: HealthGatedRollout</tspan> · stored configuration, not a running pod</text>
 
   <rect x="1045" y="220" width="450" height="170" rx="10" fill="#fff7ed" stroke="#ea580c" class="group"/>
   <text x="1070" y="255" class="heading">rollout-system</text>
